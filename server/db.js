@@ -2,8 +2,9 @@
 
 /**
  * OpenVibe.Vision's own PostgreSQL database (ADR-035): the schema is migrations/NNNN_*.sql, applied at boot.
- * Nothing written here is ever a secret: an answer stores the cleaned text, a sha256 of the image and the model
- * provenance, never the image bytes, a token or a provider key.
+ * A general answer stores the cleaned text, a sha256 of the image and the model provenance, never the image bytes,
+ * a token or a provider key. The opt-in face tables hold encrypted templates/uploads and consent records, never the
+ * AES key.
  */
 const fs = require('fs');
 const path = require('path');

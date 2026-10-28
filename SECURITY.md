@@ -25,6 +25,9 @@ domains) and every repository under github.com/OpenVibers. Machine-readable cont
 - UI checks: source (html, url or screenshot), the viewport, the findings and the summary. Never the screenshot.
 - A person's Network session tokens only in httpOnly cookies (`vision_at`, `vision_rt`); no token is stored in the
   database, rendered into a page or logged.
+- Face data, only after a separate consent: AES-256-GCM ciphertext of face templates, opt-in Vision uploads and
+  vectors; the signed consent record (typed name, text version and time), cast tags and private library groups.
+  Never sent to OpenVibe.AI, Search, model prompts or Bench.
 - No provider key. AI calls use the service's own Network client-credentials token and OpenVibe.AI's routing.
 
 ## Image inputs and the UI check
@@ -39,11 +42,9 @@ The `/internal/events` account route is loopback only and refuses a proxied requ
 `/internal` and `/metrics`. A service token is judged on its own signature, audience and capability grant; an
 unknown or forged token is refused, never downgraded to the session.
 
-## No faces
+## Faces with scoped consent
 
-Vision never identifies or recognises faces, never names a person, and never describes a person's looks in public AI text. The model prompt
-carries the rule and every AI answer is passed through `noLooks`; an answer that names looks is replaced. A report
-that either rule was broken is a security report for this repository.
+Detect and blur do not identify anyone. Face matching uses local YuNet/SFace ONNX models and separately signed, purpose-specific consent. Templates and opt-in uploads are encrypted with `VISION_FACE_KEY` (AES-256-GCM) and private; a person can withdraw a purpose and erase its template immediately. A cast matcher reads only the named channel's consenting roster, and revoking a grant stops matches and deletes past tags. Library grouping is off unless `VISION_FACE_LIBRARY_REGIONS` allows the region. Vision never identifies strangers on the open web, builds no public face index, and a match alone never unlocks anything (liveness is `not_checked` until a tested component exists). Public AI text never describes a person's looks: the model prompt carries the rule and every AI answer is passed through `noLooks`. A report that any rule was broken is a security report for this repository.
 
 ## Supported versions
 

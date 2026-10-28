@@ -20,6 +20,7 @@ function createLifecycle({ server, ctx, exit, signals, timers = [], extra = [] }
             () => { for (const t of timers) clearInterval(t); },
             () => ctx.keys.client.stop(),
             async () => { clearInterval(ctx.telemetryTick); if (ctx.retention) await ctx.retention.stop(); if (ctx.telemetry) await ctx.telemetry.stop(); },
+            () => clearInterval(ctx.faceRetentionTick),
             () => ctx.s.close(),
             ...extra,
         ],
@@ -40,6 +41,12 @@ async function start() {
     ctx.retention = startTelemetryRetention({ db: ctx.s.db, log: ctx.log || console, olderThanDays: 14 });
     ctx.telemetryTick = setInterval(() => { ctx.telemetry.flush().catch(() => {}); }, 60_000);
     ctx.telemetryTick.unref();
+    // At boot and daily, remove expired face data. Drills never run this job.
+    if (!config.drill) {
+        ctx.faceRetentionTick = setInterval(() => { ctx.faces.retention().catch((err) => console.error('[OpenVibe.Vision] face retention:', err.message)); }, 24 * 60 * 60_000);
+        ctx.faceRetentionTick.unref();
+        ctx.faces.retention().catch((err) => console.error('[OpenVibe.Vision] face retention:', err.message));
+    }
     ctx.keys.client.start();
 
     // The two account topics (export_requested, deleted) at OpenVibe.Events: idempotent; off without the URL, the

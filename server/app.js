@@ -4,14 +4,15 @@
  * OpenVibe.Vision — Express app factory; server/index.js listens, tests build their own instance with a temp
  * database, a mock Network and a mock OpenVibe.AI.
  *
- *   /, /ask, /ocr, /compare, /ui-check, /a/:id, /ui/:id, /developers   the pages (http/pages.js)
- *   /api/v1/*                                                          the API (http/api.js)
+ *   /, /ask, /ocr, /compare, /ui-check, /a/:id, /ui/:id, /people, /people/privacy, /developers   the pages (http/pages.js)
+ *   /api/v1/*                                                          the API (http/api.js, http/faces-api.js)
  *   /auth/*                                                            Network SSO with PKCE (auth/sso.js)
  *   /api/health, /api/ready, /release.json, /metrics                    (loopback only)
  *   /internal/events                                                   account export/deletion (loopback only)
  *
- * Every model call goes through OpenVibe.AI; the local OCR engine and the UI check run on this host. No provider
- * key, no paid provider and no image bytes are stored.
+ * Every model call goes through OpenVibe.AI; the local OCR engine, the UI check and the local face models run on this
+ * host. No provider key, no paid provider, and no general answer stores image bytes. Only the opt-in face library
+ * keeps encrypted uploads.
  */
 const path = require('path');
 const express = require('express');
@@ -27,6 +28,7 @@ const { createKeyStore } = require('./auth/keys');
 const { createSso } = require('./auth/sso');
 const { createPrincipal } = require('./http/principal');
 const { createApi } = require('./http/api');
+const { createFaceApi } = require('./http/faces-api');
 const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { assetVersion, send } = require('./render/layout');
@@ -37,6 +39,8 @@ const { createStore } = require('./store');
 const { createOcr } = require('./vision/ocr');
 const { createAi } = require('./vision/ai');
 const { createVision } = require('./vision/service');
+const { createFacesModel } = require('./vision/faces-model');
+const { createFaces } = require('./vision/faces');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -62,6 +66,7 @@ async function createApp(opts = {}) {
     const ocr = opts.ocr || createOcr({ config, log });
     const ai = opts.ai || createAi({ config, fetchImpl, log });
     const vision = createVision({ config, s, ocr, ai, store, log });
+    const faces = createFaces({ s, config, model: opts.facesModel || createFacesModel({ dir: config.faces.modelsDir }) });
     const models = require('./vision/local-models').createLocalModels({ config, clip: opts.clip, detector: opts.detector });
     const networkTools = require('./vision/network-tools').createNetworkTools({ s, ai, ocr, models, config, fetchImpl });
 
@@ -72,7 +77,7 @@ async function createApp(opts = {}) {
         ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret, fetch: fetchImpl })
         : async () => { throw new Error('OV_OAUTH_CLIENT_SECRET is not set: Vision cannot answer account events'); });
 
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, models, networkTools, accountData, accountSend, log, fetchImpl };
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, log, fetchImpl };
 
     const app = express();
     app.disable('x-powered-by');
@@ -115,7 +120,7 @@ async function createApp(opts = {}) {
     // ── Machine endpoints ───────────────────────────────────
     app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'openvibe-vision', name: 'OpenVibe.Vision', version: VERSION }));
     release.mount(app, { registry: metrics.registry });
-    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, models });
+    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, faces, models });
     app.get('/api/ready', readiness.handler);
 
     // ── Who is asking (verified offline; refreshed when expired) ──
@@ -149,6 +154,7 @@ async function createApp(opts = {}) {
 
     // ── API ─────────────────────────────────────────────────
     app.use('/api/v1', rateLimit({ windowMs: 60_000, limit: Number(process.env.VISION_API_RATE_LIMIT_PER_MIN) || 120, standardHeaders: true, legacyHeaders: false, handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }) }));
+    app.use('/api/v1/faces', createFaceApi(ctx));
     app.use('/api/v1', createApi(ctx));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 

@@ -117,10 +117,13 @@ const PLANTED = '<style>body{background:#fff;color:#999}.wide{width:1600px}</sty
             const map = await t.get('/sitemap.xml');
             assert.strictEqual(map.status, 200);
             assert.ok(map.text.includes('https://openvibe.vision/ui-check'));
+            assert.ok(map.text.includes('https://openvibe.vision/people'));
+            assert.ok(map.text.includes('https://openvibe.vision/privacy'));
             const llms = await t.get('/llms.txt');
             assert.strictEqual(llms.status, 200);
             assert.ok(llms.text.includes('OpenVibe.Vision'));
-            assert.match(llms.text, /No face recognition/);
+            assert.match(llms.text, /separate consent/);
+            assert.doesNotMatch(llms.text, /No face recognition/);
         });
     } finally {
         await t.close();

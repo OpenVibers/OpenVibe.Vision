@@ -20,18 +20,35 @@ The first version: see with the best model for the job.
   estimates boxes and inline CSS to find overflow, cut-off text, WCAG contrast failures, overlapping positioned
   boxes and layering faults (`z-index` without position, a full-viewport fixed box). The screenshot pass uses the
   local OCR boxes and sharp pixels. Findings are data: kind, severity, selector, detail, evidence. Design's Arena
-  calls it with `vision.ui_check`.
+  calls it with `vision.ui.check`.
 - **The AI gateway.** Vision calls OpenVibe.AI's OpenAI-compatible endpoint with a first-party service token
   (`ai.run.create`, namespace `ai.*`). AI's routing, quotas, cache, provenance and cost accounting apply. Vision holds
   no provider key, adds no provider and calls no paid provider directly.
-- **No looks, no faces.** Public AI text goes through `noLooks`; an answer that names a person's looks is replaced by
-  a neutral sentence. Face recognition is not implemented and is not called, ever.
-- **Privacy.** No image bytes are stored: an answer keeps a sha256, the media type, the cleaned text and the model
-  provenance. Answers, compare samples and UI checks are exported and erased with the person's account.
+- **No looks in AI text.** Public AI text goes through `noLooks`; an answer that names a person's looks is replaced by
+  a neutral sentence.
+- **Faces, by purpose, with signed consent.** `POST /api/v1/faces/detect` and `/blur` are open local YuNet privacy
+  tools with no templates or tracking. Self verification, self search, adult cast tagging and private library
+  grouping each need their own signed consent (`face_consents`), a local SFace template encrypted with
+  `VISION_FACE_KEY` (AES-256-GCM), and immediate erasure on opt-out. A cast matcher reads only the named channel's
+  roster and revoking deletes past tags. Library grouping is region-gated and unknown faces stay unlabelled.
+  `POST /api/v1/faces/verify` returns a score, threshold and `liveness: "not_checked"`, never an identity. The daily
+  retention job (off in `VISION_DRILL`) expires templates three years after last use. `npm run models:faces` pins the
+  YuNet and SFace downloads by URL and SHA-256. Pages: `/people` and `/people/privacy`; `/privacy` stays the shared
+  legal policy.
+- **Network tools, wave 1.** `POST /api/v1/alt` (routed editable alt text), `POST /api/v1/index` and
+  `GET`/`POST /api/v1/find` (owner-scoped CLIP search), `POST /api/v1/receipt` (local Tesseract first),
+  `POST /api/v1/product` (CLIP vector plus configured offers), `POST /api/v1/watch` (DETR boxes and scene change)
+  and `POST /api/v1/moments` (scene histogram plus CLIP prompts). Each answer carries a receipt. `npm run
+  models:fetch` downloads pinned quantized CLIP and DETR weights; missing weights degrade to an honest 503.
+- **Privacy.** General answers store no image bytes: an answer keeps a sha256, the media type, the cleaned text and
+  the model provenance. Opt-in face uploads, vectors and templates are encrypted. Answers, compare samples, UI checks
+  and every face row are exported and erased with the person's account.
 - **The service.** Network sign-in as OAuth client `vision` (PKCE S256, `vision_at`/`vision_rt`/`vision_oauth`),
   truthful readiness, Prometheus metrics on loopback, discovery, a systemd unit, an nginx vhost and CI. Pages are
   server-rendered with stable `vi-` ids/classes; `public/css/vision.css` and `public/js/vision.js` are
   one-comment placeholders for the main session.
 - **Tests.** Migration, SSO, API, OCR, compare/benchmarks, the UI check (including a planted overflow), noLooks,
-  pages/cache and account export/deletion, each in its own process on a temporary PGlite database with a mock
-  Network, a mock OpenVibe.AI and local image/page fixtures.
+  pages/cache, account export/deletion, faces with a fake ONNX model (consent gates, roster-only matching,
+  encryption at rest, opt-out, retention, region gate and export/deletion), and the network tools with fake CLIP,
+  DETR and OCR, each in its own process on a temporary PGlite database with a mock Network, a mock OpenVibe.AI and
+  local image/page fixtures.

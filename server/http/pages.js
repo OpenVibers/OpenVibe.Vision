@@ -12,6 +12,9 @@
  *   /ui-check         HTML, URL or screenshot (POST /ui-check → /ui/:id, or inline for a guest)
  *   /a/:id            one saved answer (owner or staff)
  *   /ui/:id           one saved UI check (owner or staff)
+ *   /find, /read, /watch   the network tools (private search, receipts, camera)
+ *   /people           the four face consents, each with its own signed switch
+ *   /people/privacy   face retention, liveness and what never happens
  *   /developers       the API
  *   404
  */
@@ -28,11 +31,12 @@ const { html, raw } = require('../render/html');
 const { send } = require('../render/layout');
 const { isStaff } = require('../identity/staff');
 const views = require('../views');
+const peopleViews = require('../views/people');
 
 const PUBLIC_CACHE = 'public, max-age=60';
 
 function createPageRoutes(ctx) {
-    const { config, s, store, vision, ai, ocr, fetchImpl } = ctx;
+    const { config, s, store, vision, ai, ocr, faces, fetchImpl } = ctx;
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
     r.use(express.urlencoded({ extended: false, limit: '2mb' }));
@@ -59,10 +63,34 @@ function createPageRoutes(ctx) {
     // ── Home ─────────────────────────────────────────────────
     r.get('/', (req, res) => page(req, res, {
         index: true, cache: PUBLIC_CACHE, title: null,
-        description: 'Ask a picture, compare the local reader with an AI model, and check a page for overflow, cut-off text, low contrast, overlap and layering faults. No face recognition, ever.',
+        description: 'Ask a picture, read text, check a page, find your images and use local face privacy tools with consent for personal matching.',
         jsonLd: homeJsonLd(config),
         body: raw(views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled })),
     }));
+
+    r.get('/people', async (req, res) => page(req, res, { title: 'People and consent', body: raw(peopleViews.people({
+        signedIn: Boolean(signedIn(req)), consents: signedIn(req) ? await faces.listConsents(req.viewer.subject) : [],
+        texts: faces.TEXT, regions: config.faces.allowedRegions,
+    })) }));
+    r.get('/people/privacy', (req, res) => page(req, res, { title: 'Face privacy', body: raw(peopleViews.privacy()) }));
+    r.post('/people/consent/:feature', async (req, res) => {
+        if (!signedIn(req)) return page(req, res, { title: 'Sign in', body: raw(views.signIn({ title: 'People', text: 'Sign in to choose.', next: '/people' })) }, 401);
+        if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        try {
+            if (req.body.enabled === 'yes') await faces.consent(req.viewer.subject, req.params.feature, {
+                signedName: req.body.signed_name, textVersion: req.body.text_version, channel: req.body.channel,
+                adult: req.body.adult === 'true', region: req.body.region,
+            });
+            else await faces.revoke(req.viewer.subject, req.params.feature, req.body.channel);
+            return res.redirect(303, '/people');
+        } catch (err) { return page(req, res, { title: 'People', body: raw(views.formError(err.detail || 'That choice could not be saved.')) }, err.status || 400); }
+    });
+    r.post('/people/enrol/:feature', uploadMiddleware, async (req, res) => {
+        if (!signedIn(req)) return page(req, res, { title: 'Sign in', body: raw(views.signIn({ title: 'People', text: 'Sign in to enrol.', next: '/people' })) }, 401);
+        if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        try { await faces.enrol(req.viewer.subject, req.params.feature, (await imageOf(req)).buffer, req.body.channel); return res.redirect(303, '/people'); }
+        catch (err) { return page(req, res, { title: 'People', body: raw(views.formError(err.detail || err.message || 'Enrolment failed.')) }, err.status || 400); }
+    });
 
     const toolPage = (req, res, title, intro, fields) => page(req, res, {
         title, cache: PUBLIC_CACHE,
