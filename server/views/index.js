@@ -20,20 +20,21 @@ function motif() {
 }
 
 function home({ signedIn = false, ai = false } = {}) {
-    const tryIt = `<section class="vi-section vi-try" id="vi-try" aria-labelledby="vi-try-h">
-<div class="vi-head-row"><h2 id="vi-try-h">Ask a picture</h2><span class="vi-count">${ai ? 'local OCR first, then OpenVibe.AI' : 'local engines only on this host right now'}</span></div>
-<p class="vi-lede">Describe, read, translate, identify or count. Upload a file or paste a public image URL; the local reader answers a read question before any model is called.</p>
-<div class="vi-actions"><a class="vi-btn" href="/ask">Ask a picture</a><a class="vi-btn vi-btn-quiet" href="/ocr">Read text only</a><a class="vi-btn vi-btn-quiet" href="/compare">Compare models</a><a class="vi-btn vi-btn-quiet" href="/ui-check">Check a page</a></div>
-${signedIn ? '' : '<p class="vi-fine">Ask and compare save an answer to your account, so they need <a href="/auth/login?next=%2Fask">an OpenVibe sign-in</a>. OCR and the UI check work without one.</p>'}
-</section>`;
+    const tryIt = `<section class="vi-section vi-tasks-wrap" id="vi-try" aria-labelledby="vi-try-h">
+<div class="vi-head-row"><h2 id="vi-try-h">What do you want to do?</h2><span class="vi-count">${ai ? 'local engines first, then OpenVibe.AI' : 'local engines on this host'}</span></div>
+<ul class="vi-tasks"><li><a class="vi-task" href="/ask"><b>Look</b><span>Ask anything about a picture: what it shows, how many, what it says.</span></a></li><li><a class="vi-task" href="/read"><b>Read</b><span>Receipts, signs, screenshots and documents, read on this host first, for nothing.</span></a></li><li><a class="vi-task" href="/ask"><b>Translate</b><span>A sign, a menu or a stream overlay, read and put into your language.</span></a></li><li><a class="vi-task" href="/find"><b>Find</b><span>Search your own pictures by words or by another picture. Only you see the results.</span></a></li><li><a class="vi-task" href="/watch"><b>Watch</b><span>Point it at a still from your camera and get told when a delivery, an animal or a change shows up.</span></a></li><li><a class="vi-task" href="/people"><b>People</b><span>Faces with your consent: verify yourself, find yourself, tag co-streamers who opted in, or just blur.</span></a></li><li><a class="vi-task" href="/compare"><b>Compare</b><span>One picture, several models, side by side, with what each answer cost and how long it took.</span></a></li><li><a class="vi-task" href="/ui-check"><b>Check a page</b><span>Overflow, clipped text, low contrast and overlap, found in HTML, a URL or a screenshot.</span></a></li></ul>
+${signedIn ? '' : '<p class="vi-fine">Reading, blurring and the page check work without an account. Saving answers, your picture search and faces need <a href="/auth/login?next=%2F">an OpenVibe sign-in</a>.</p>'}
+</section>
+<section class="vi-section vi-net-wrap" aria-labelledby="vi-net-h"><div class="vi-head-row"><h2 id="vi-net-h">Works across OpenVibe</h2><a class="vi-more" href="/developers">The API</a></div>
+<ul class="vi-net"><li><b>Pics and Media</b><span>alt text for every image</span></li><li><b>Food</b><span>a receipt becomes your pantry</span></li><li><b>Deals</b><span>photograph it, compare offers</span></li><li><b>Cam</b><span>alerts on your own cameras</span></li><li><b>Live</b><span>scene changes and moments</span></li><li><b>Design</b><span>the page check</span></li><li><b>Search</b><span>search by picture</span></li><li><b>Bench</b><span>which model sees best, per dollar</span></li></ul></section>`;
     const room = sc.room({
         room: 'vision',
         hero: {
-            title: 'See with the best model for the job',
-            lede: 'Ask a picture. Read its text with a local OCR engine first. Compare the local reader with a routed vision model on the same image, with the cost and the time beside each answer. Check a page for overflow and layering faults. Local face tools use separate consent for each identifying purpose.',
-            start: { href: '/ask', label: 'Ask a picture' },
-            chips: [{ label: 'Read text', href: '/ocr' }, { label: 'Compare models', href: '/compare' }, { label: 'UI check', href: '/ui-check' }, { label: 'The API', href: '/developers' }],
-            proof: [{ value: '0.0000', label: 'USD for the local OCR first pass' }],
+            title: 'See it. Use it everywhere.',
+            lede: 'Point Vision at a picture and do something with it: read a receipt into your pantry, find your own photos by words, get told when your camera sees a delivery, or check a page before it ships. Every answer says which model saw it, what it cost and what was kept.',
+            start: { href: '/ask', label: 'Look at a picture' },
+            chips: [{ label: 'Read', href: '/read' }, { label: 'Find', href: '/find' }, { label: 'Watch', href: '/watch' }, { label: 'People', href: '/people' }, { label: 'The API', href: '/developers' }],
+            proof: [{ value: '0.0000', label: 'USD for a local read' }, { value: '8', label: 'tools, one API' }],
             motif: motif(),
         },
         scenes: [
@@ -54,6 +55,12 @@ ${signedIn ? '' : '<p class="vi-fine">Ask and compare save an answer to your acc
                 text: 'Drop in HTML, a page URL or a screenshot. The static pass reads the boxes and the colours: a container wider than the viewport, nowrap text clipped by its box, body text under 4.5:1, positioned boxes on top of each other, a z-index with no effect. Arena calls the same API after it generates a page.',
                 html: `<div class="vi-demo-check"><div class="vi-demo-page"><span class="vi-demo-overflow">this card is 1400px wide</span><span class="vi-demo-clip">a headline that gets cut off at the edge</span></div><ul><li class="is-bad"><b>overflow</b><span>1400px in a 390px view</span></li><li class="is-bad"><b>cut off</b><span>nowrap inside 120px</span></li><li class="is-bad"><b>contrast</b><span>2.4:1, needs 4.5:1</span></li></ul></div>`,
                 action: { href: '/ui-check', label: 'Check a page' },
+            },
+            {
+                title: 'Faces, only with consent',
+                text: 'Each face feature is its own switch with its own consent: verify yourself, find yourself in your own pictures, tag co-streamers who enrolled, or group the people in your own library. Matching runs on this host; templates are encrypted and erased the moment you switch a feature off. Detecting, counting and blurring identify nobody. Vision never identifies a stranger.',
+                html: `<ul class="vi-demo-consent"><li><span class="vi-demo-switch is-on" aria-hidden="true"></span><b>Verify yourself</b><small>your face, your account</small></li><li><span class="vi-demo-switch is-on" aria-hidden="true"></span><b>Find yourself</b><small>in your own pictures</small></li><li><span class="vi-demo-switch" aria-hidden="true"></span><b>Cast tags</b><small>co-streamers who enrolled</small></li><li><span class="vi-demo-switch" aria-hidden="true"></span><b>Library people</b><small>off unless you turn it on</small></li></ul>`,
+                action: { href: '/people', label: 'Your choices' },
             },
         ],
         faq: { items: [

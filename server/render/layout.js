@@ -20,15 +20,11 @@ const TAGLINE = 'See with the best model for the job.';
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const NAV = [
     { label: 'Home', href: '/' },
-    { label: 'Ask a picture', href: '/ask' },
-    { label: 'OCR', href: '/ocr' },
-    { label: 'Find', href: '/find' },
+    { label: 'Look', href: '/ask' },
     { label: 'Read', href: '/read' },
+    { label: 'Find', href: '/find' },
     { label: 'Watch', href: '/watch' },
-    { label: 'Compare', href: '/compare' },
-    { label: 'UI check', href: '/ui-check' },
     { label: 'People', href: '/people' },
-    { label: 'Privacy', href: '/people/privacy' },
     { label: 'Developers', href: '/developers' },
 ];
 
