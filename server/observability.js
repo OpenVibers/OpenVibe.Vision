@@ -8,7 +8,7 @@
 const { jwksStatus } = require('openvibe-sdk/auth');
 const { createReadiness } = require('openvibe-shared/ready');
 
-function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null }) {
+function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null, models = null }) {
     return createReadiness({
         service: 'vision',
         release,
@@ -33,6 +33,8 @@ function createServiceReadiness({ s, config, valkey = null, release = null, ai =
             },
             { name: 'oauth_client', required: false, check: () => (config.oauth.clientSecret ? true : 'OV_OAUTH_CLIENT_SECRET unset: sign-in and AI calls cannot complete') },
             { name: 'ai', required: false, check: () => (ai && ai.enabled ? { ok: true, detail: { mode: 'on demand: a run is made only when a local engine cannot answer' } } : 'OpenVibe.AI is not configured: local OCR and the UI check still serve') },
+            { name: 'local_clip', required: false, check: () => models && models.clipReady() ? { ok: true, detail: 'quantized CLIP weights present' } : 'CLIP weights missing: private search, product embedding and moments return 503' },
+            { name: 'local_detector', required: false, check: () => models && models.detectorReady() ? { ok: true, detail: 'quantized DETR weights present' } : 'DETR weights missing: watched object classes return 503; scene change still works' },
             {
                 name: 'local_ocr', required: false,
                 check: async () => {

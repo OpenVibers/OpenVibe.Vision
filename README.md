@@ -181,3 +181,24 @@ export/deletion and the image SSRF guard.
 ## License
 
 AGPL-3.0-only. See [LICENSE](LICENSE).
+
+## Network tools, wave 1
+
+All six tools are JSON APIs. Successful `answer` objects carry a `receipt` with engine, model, `cost_usd`, `ms`, confidence and retention. An image is multipart `image` or JSON `image` data URL unless a route says otherwise. Vision does not retain image bytes.
+
+| Room call | Capability | Notes |
+|---|---|---|
+| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
+| Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
+| Food → `POST /api/v1/receipt` | `vision.receipt` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
+| Deals → `POST /api/v1/product` | `vision.product` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
+| Cam → `POST /api/v1/watch` | `vision.watch` | Owner's verified user token; upload still and `classes` array; optional `previous_image` data URL for scene change. |
+| Live, Media → `POST /api/v1/moments` | `vision.moments` | Owner's verified user token; `{frames:[{timestamp_ms,image|image_url}],prompts?}`. Scene histogram and CLIP prompt matching. |
+
+For private index, watch and moments, a service capability alone does not assert a source owner's grant. The room should call with the owner's delegated Network user token. Private index and watch reject `image_url`; the owner must supply bytes or a data URL. Moments accepts public frame URLs under Vision's existing guarded image fetch, or frame data URLs. The room that opens a returned `result_url` must check its own source grant again.
+
+`npm run models:fetch` is an explicit, revision-pinned download into `${DATA_DIR:-data}/models`. It fetches quantized ONNX CLIP ViT-B/32 (`Xenova/clip-vit-base-patch32`, derived from OpenAI CLIP) and DETR ResNet-50 (`Xenova/detr-resnet-50`, derived from Facebook DETR). The local model loader never downloads weights during a request. Missing weights return 503 for model-dependent operations; histogram-only scene change remains available. CLIP code and model are listed as MIT, but the original checkpoint's weight licence has an [open clarification request](https://huggingface.co/openai/clip-vit-base-patch32/discussions/72); confirm this before commercial distribution. DETR model and weights are [Apache 2.0](https://huggingface.co/facebook/detr-resnet-50). We use DETR rather than Ultralytics (AGPL) or RF-DETR Nano because a supported local Transformers.js ONNX export exists for DETR. `@huggingface/transformers` is Apache 2.0. Tesseract is Apache 2.0.
+
+Private embeddings are JSON vectors in PostgreSQL, scored in JavaScript after a mandatory `owner` filter. Vision has no pgvector migration or extension requirement. The v1 search cap is 5,000 items per owner.
+
+Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEARCH_URL`, both fixed operator URLs returning JSON `{offers:[{title,url,price?}]}` or `{results:[...]}`. Deals currently exposes public `GET /api/v1/offers` without a query filter, and its `/search?q=` is an HTML page; open.shoes has no implemented API in this workspace yet. Until those rooms expose a structured search endpoint, `/product` returns the description and embedding with an empty `offers` list and a warning. It does not fabricate matches.

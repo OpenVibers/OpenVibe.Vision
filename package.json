@@ -9,7 +9,8 @@
     "dev": "NODE_ENV=development node server/index.js",
     "proof": "node scripts/proof.js",
     "test": "node test/run.js",
-    "test:pg": "VISION_TEST_STORE=pg node test/run.js"
+    "test:pg": "VISION_TEST_STORE=pg node test/run.js",
+    "models:fetch": "node scripts/fetch-models.js"
   },
   "keywords": [
     "openvibe"
@@ -17,6 +18,7 @@
   "author": "OpenVibers",
   "license": "AGPL-3.0-only",
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
