@@ -8,6 +8,7 @@
  */
 require('dotenv').config();
 const trim = (s) => String(s || '').replace(/\/+$/, '');
+const { modelsDir } = require('./paths');
 const int = (v, def) => (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : def);
 
 function load(env = process.env) {
@@ -90,6 +91,16 @@ function load(env = process.env) {
             maxMb: Math.min(20, Math.max(1, int(env.VISION_IMAGE_MAX_MB, 8))),
             timeoutMs: Math.max(1000, int(env.VISION_IMAGE_TIMEOUT_MS, 10000)),
             allowPrivate: env.VISION_ALLOW_PRIVATE_URLS === '1' || env.VISION_ALLOW_PRIVATE_URLS === 'true',
+        },
+        faces: {
+            modelsDir: modelsDir(env),
+            key: env.VISION_FACE_KEY || '',
+            allowedRegions: String(env.VISION_FACE_LIBRARY_REGIONS || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean),
+            threshold: (() => {
+                const raw = String(env.VISION_FACE_MATCH_THRESHOLD || '').trim();
+                const n = raw ? Number(raw) : 0.363;
+                return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.363;
+            })(),
         },
 
         // The UI check: a static layout pass over HTML or a fetched page (no JavaScript executed), plus a

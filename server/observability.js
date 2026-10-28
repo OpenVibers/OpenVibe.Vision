@@ -8,7 +8,7 @@
 const { jwksStatus } = require('openvibe-sdk/auth');
 const { createReadiness } = require('openvibe-shared/ready');
 
-function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null }) {
+function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null, faces = null }) {
     return createReadiness({
         service: 'vision',
         release,
@@ -41,6 +41,12 @@ function createServiceReadiness({ s, config, valkey = null, release = null, ai =
                     return v ? { ok: true, detail: v } : 'tesseract is not installed: OCR and the screenshot pass answer 503';
                 },
             },
+            { name: 'face_models', required: false, check: () => {
+                const state = faces && faces.available();
+                return state && state.yunet && state.sface && state.key
+                    ? { ok: true, detail: { mode: 'local ONNX only', detect: Boolean(state.yunet), match: Boolean(state.sface && state.key) } }
+                    : 'Face matching is unavailable: install YuNet/SFace weights and set VISION_FACE_KEY; detect/blur need only YuNet and other Vision routes still serve';
+            } },
         ],
     });
 }

@@ -24,6 +24,8 @@ const NAV = [
     { label: 'OCR', href: '/ocr' },
     { label: 'Compare', href: '/compare' },
     { label: 'UI check', href: '/ui-check' },
+    { label: 'People', href: '/people' },
+    { label: 'Privacy', href: '/people/privacy' },
     { label: 'Developers', href: '/developers' },
 ];
 

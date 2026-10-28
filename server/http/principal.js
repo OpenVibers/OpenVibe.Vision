@@ -7,9 +7,10 @@
  *       a person: their Network user token as a Bearer, or this site's session cookie (vision_at).
  *   { kind: 'service', sub: 'svc:design', cap: [...], project, claims }
  *       a Network service, app or agent token for audience openvibe.vision. Each machine route names exactly one
- *       capability (vision.ui.check for Design's Arena, vision.ask, vision.ocr, vision.compare) and checks the
- *       token's grant list with openvibe-contracts capabilities.grants. Unknown capability ids are accepted here
- *       until the main session registers the manifests; the main session adds the grants.
+ *       capability (vision.ui.check for Design's Arena, vision.face.cast.match for Live's channel roster, vision.ask,
+ *       vision.ocr, vision.compare) and checks the token's grant list with openvibe-contracts capabilities.grants.
+ *       Unknown capability ids are accepted here until the main session registers the manifests; the main session
+ *       adds the grants.
  *   { kind: 'anonymous' }
  *
  * A request that presents a token is judged on that token alone: a bad one is refused, never downgraded to the
@@ -21,8 +22,8 @@ const { serviceAuth, capabilities, http, ids } = require('openvibe-contracts');
 const PRINCIPAL_SUB = /^(svc|app|mod|agent):/;
 const PROJECT_RE = /^prj_[0-9A-HJKMNP-TV-Z]{26}$/;
 
-/** Vision's four machine capabilities (the main session registers them; v1 accepts the grant directly). */
-const CAPABILITIES = Object.freeze(['vision.ask', 'vision.ocr', 'vision.compare', 'vision.ui.check']);
+/** Vision's five machine capabilities (the main session registers them; v1 accepts the grant directly). */
+const CAPABILITIES = Object.freeze(['vision.ask', 'vision.ocr', 'vision.compare', 'vision.ui.check', 'vision.face.cast.match']);
 
 function decodePayload(token) {
     const parts = String(token || '').split('.');

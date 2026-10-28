@@ -13,7 +13,7 @@ const cache = require('openvibe-shared/cache-policy');
 const { asyncRouter } = require('./router');
 
 const SITE_NAME = 'OpenVibe.Vision';
-const DESCRIPTION = 'OpenVibe.Vision sees with the best model for the job: ask a picture, read its text with a local OCR engine first, compare models side by side through OpenVibe.AI, and check a page for overflow, cut-off text, low contrast, overlap and layering faults. No face recognition, ever.';
+const DESCRIPTION = 'OpenVibe.Vision reads images and checks pages. Local face detection and blur are open; identifying matches require separate, purpose-scoped consent.';
 const DISALLOW = ['/auth/', '/api/', '/internal', '/metrics', '/a/', '/ui/'];
 
 function dayOf(ts) {
@@ -40,6 +40,9 @@ function publicPages() {
         { path: '/ocr', changefreq: 'weekly', priority: 0.8, title: 'Read text from a picture', text: 'Local Tesseract OCR first, with an optional AI fallback for a signed-in person.' },
         { path: '/compare', changefreq: 'weekly', priority: 0.8, title: 'Compare models side by side', text: 'The same image through local OCR and through OpenVibe.AI, with the answer, cost and latency side by side.' },
         { path: '/ui-check', changefreq: 'weekly', priority: 0.9, title: 'Check a page for UI faults', text: 'Overflow, cut-off text, low contrast, overlap and layering faults from HTML, a URL or a screenshot.' },
+        { path: '/people', changefreq: 'weekly', priority: 0.6, title: 'People and consent', text: 'Separate choices for self verification, self search, cast tagging and private library grouping.' },
+        { path: '/privacy', changefreq: 'yearly', priority: 0.3, title: 'Privacy policy', text: 'The privacy policy for OpenVibe.Vision.' },
+        { path: '/people/privacy', changefreq: 'weekly', priority: 0.6, title: 'Face privacy', text: 'Local processing, private links, retention, erasure and prohibited uses.' },
         { path: '/developers', changefreq: 'weekly', priority: 0.6, title: 'The OpenVibe.Vision API', text: 'The JSON API, the capabilities other services need, and what leaves this host.' },
     ];
 }
@@ -61,8 +64,8 @@ function createDiscoveryRoutes(ctx) {
     r.get('/llms.txt', (_req, res) => {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsTxt({
             name: SITE_NAME,
-            summary: 'OpenVibe.Vision answers questions about a picture. The cheapest engine first: local Tesseract OCR answers a read question; otherwise OpenVibe.AI\'s routed vision model answers. A compare runs the local reader and AI models on the same image and reports each answer with its model, cost and latency. The UI check flags overflow, cut-off text, low contrast, overlap and layering faults from HTML, a URL or a screenshot. No face recognition, ever; public AI text never describes people\'s looks.',
-            details: 'POST /api/v1/ask (multipart image, image data URL or image_url) asks a question. POST /api/v1/ocr reads text locally first. POST /api/v1/compare runs the same image through local OCR and up to three AI hints. POST /api/v1/ui-check takes html, url or a screenshot and returns findings. GET /api/v1/benchmarks aggregates compare samples without subjects. A person is the openvibe.vision session or a Network user token; a service token needs vision.ask, vision.ocr, vision.compare or vision.ui.check.',
+            summary: 'OpenVibe.Vision answers questions about a picture, reads text locally and checks UI faults. Local face detection and blur need no identity; self verification, self search, cast tagging and library grouping each require separate consent. Public AI text never describes people\'s looks.',
+            details: 'POST /api/v1/ask (multipart image, image data URL or image_url) asks a question. POST /api/v1/ocr reads text locally first. POST /api/v1/compare runs the same image through local OCR and up to three AI hints. POST /api/v1/ui-check takes html, url or a screenshot and returns findings. GET /api/v1/benchmarks aggregates compare samples without subjects. Face detection/blur are open at POST /api/v1/faces/detect and /blur; matching needs separate signed consent per purpose (verify, find, cast, library). A person is the openvibe.vision session or a Network user token; a service token needs vision.ask, vision.ocr, vision.compare, vision.ui.check or vision.face.cast.match.',
             sections: [
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Vision', url: abs('/') },
@@ -70,6 +73,8 @@ function createDiscoveryRoutes(ctx) {
                     { title: 'Read text from a picture', url: abs('/ocr') },
                     { title: 'Compare models', url: abs('/compare') },
                     { title: 'The UI check', url: abs('/ui-check') },
+                    { title: 'People and consent', url: abs('/people') },
+                    { title: 'Face privacy', url: abs('/people/privacy') },
                     { title: 'The API', url: abs('/developers') },
                 ] },
                 { title: 'Machine-readable', links: [
@@ -91,14 +96,14 @@ function createDiscoveryRoutes(ctx) {
     r.get('/llms-full.txt', (_req, res) => {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsFull({
             site: SITE_NAME,
-            summary: 'Every public page of OpenVibe.Vision: the home, ask, OCR, compare, the UI check and the API.',
+            summary: 'Every public page of OpenVibe.Vision: the home, ask, OCR, compare, the UI check, people and consent, face privacy and the API.',
             base: site,
             maxBytes: 256 * 1024,
             sections: [
                 { title: 'Pages', pages: pages.map((p) => ({ url: p.path, title: p.title, text: p.text })) },
                 { title: 'Rules', pages: [
-                    { url: '/developers', title: 'No face recognition', text: 'Vision never identifies or recognises faces and never describes a person\'s looks in public AI text.' },
-                    { url: '/developers', title: 'No stored images', text: 'Answers store a sha256, the media type and the cleaned text; never the image bytes.' },
+                    { url: '/people/privacy', title: 'Faces with consent', text: 'Face matching is local and limited to a separately consented purpose. Public AI text never describes a person\'s looks.' },
+                    { url: '/developers', title: 'No stored general images', text: 'General answers store a sha256, the media type and the cleaned text, never the image bytes. Only an opt-in face library keeps encrypted uploads.' },
                 ] },
             ],
         }));

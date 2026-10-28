@@ -30,7 +30,7 @@ ${signedIn ? '' : '<p class="vi-fine">Ask and compare save an answer to your acc
         room: 'vision',
         hero: {
             title: 'See with the best model for the job',
-            lede: 'Ask a picture. Read its text with a local OCR engine first. Compare the local reader with a routed vision model on the same image, with the cost and the time beside each answer. Check a page for the overflow, low contrast and layering faults a person would catch. No face recognition, ever.',
+            lede: 'Ask a picture. Read its text with a local OCR engine first. Compare the local reader with a routed vision model on the same image, with the cost and the time beside each answer. Check a page for overflow and layering faults. Local face tools use separate consent for each identifying purpose.',
             start: { href: '/ask', label: 'Ask a picture' },
             chips: [{ label: 'Read text', href: '/ocr' }, { label: 'Compare models', href: '/compare' }, { label: 'UI check', href: '/ui-check' }, { label: 'The API', href: '/developers' }],
             proof: [{ value: '0.0000', label: 'USD for the local OCR first pass' }],
@@ -57,9 +57,9 @@ ${signedIn ? '' : '<p class="vi-fine">Ask and compare save an answer to your acc
             },
         ],
         faq: { items: [
-            ['Does Vision recognise faces?', 'No. Never. Vision identifies what an image shows without identifying people, and public AI text never describes a person\'s looks. The prompt and the stored answer both enforce the no-looks rule.'],
+            ['Does Vision recognise faces?', 'Only for a person who separately opts into a specific purpose: self verification, self search, cast tagging or private library grouping. Detect and blur never identify anyone. Public AI text never describes a person\'s looks.'],
             ['Which model answers?', 'Every answer names the model and provider that actually answered and the reason it was chosen. Local OCR is first for a read question; otherwise OpenVibe.AI routes the run and its provenance is what Vision reports.'],
-            ['Are my images stored?', 'No image bytes are stored. An answer keeps a sha256, the media type, the cleaned text and the model provenance. A signed-in person\'s rows are exported and erased with their account.'],
+            ['Are my images stored?', 'General answers keep no image bytes. An opt-in face library stores encrypted uploads and vectors privately; turning its purposes off erases derived data. Account export and deletion include those rows.'],
         ] },
     });
     const at = room.indexOf('<section class="sc-room-scenes"');
@@ -85,7 +85,7 @@ function ask({ signedIn = false, ai = false, problem = null, values = {} } = {})
     const v = { task: 'ask', mode: 'auto', ...values };
     return `<div class="vi-wrap" id="vi-ask">
 <header class="vi-page-h"><p class="vi-kicker">Ask a picture</p><h1>What does the image show?</h1>
-<p class="vi-lede">Describe, read, translate, identify or count. A read question goes to the local OCR reader first; the answer says which engine answered and why. No face recognition, ever.</p></header>
+<p class="vi-lede">Describe, read, translate, identify or count. A read question goes to the local OCR reader first; the answer says which engine answered and why. Face matching has separate consent controls on <a href="/people">People</a>.</p></header>
 ${problem ? `<p class="vi-note is-bad" role="alert">${esc(problem)}</p>` : ''}
 ${signedIn ? '' : `<p class="vi-note">Ask saves the answer to an account. <a href="/auth/login?next=%2Fask">Sign in with OpenVibe</a> to ask; <a href="/ocr">OCR</a> and the <a href="/ui-check">UI check</a> work without one.</p>`}
 ${ai ? '' : '<p class="vi-note is-warm">OpenVibe.AI is not configured on this host. A read question still runs on the local OCR engine.</p>'}
@@ -235,8 +235,23 @@ ${ep('GET', '/api/v1/ui-checks/:id', 'One saved UI check, for its owner or a ser
 ${ep('GET', '/api/v1/models', 'The AI route\'s offered provider:model hints and the local engine. No subject data.')}
 ${ep('GET', '/api/v1/benchmarks?task=&limit=', 'Aggregate compare samples: task, engine, provider, model, samples, mean latency and mean cost. No subject data.')}
 </dl></section>
+<section id="vi-faces"><h2>Faces, by consent</h2><dl class="vi-eps">
+${ep('POST', '/api/v1/faces/detect', 'Anyone. YuNet boxes and a count; no template, identity or cross-frame tracking.')}
+${ep('POST', '/api/v1/faces/blur', 'Anyone. The same YuNet boxes drive an image/png redaction. Both open routes are rate-limited.')}
+${ep('GET', '/api/v1/faces/consents/text', 'The four signed texts and their versions. A person signs one purpose with <code>signed_name</code> and <code>text_version</code> at <code>POST /api/v1/faces/consents/:feature</code>; <code>DELETE</code> revokes and erases.')}
+${ep('POST', '/api/v1/faces/enrol/:feature', 'A person, after that purpose\'s consent: exactly one face into an AES-GCM encrypted SFace template.')}
+${ep('POST', '/api/v1/faces/verify', 'A person. Returns <code>{ score, match, threshold, liveness: "not_checked" }</code> against their own template, never an identity. A match alone unlocks nothing.')}
+${ep('POST', '/api/v1/faces/media', 'A person with find or library consent. Stores an encrypted Vision upload; <code>GET /api/v1/faces/media/:id</code> is owner-only.')}
+${ep('POST', '/api/v1/faces/find', 'A person with self-search consent. Matches only their own template in their own Vision uploads and returns private links.')}
+${ep('POST', '/api/v1/faces/cast/match', 'Live with <code>vision.face.cast.match</code> and a signed <code>channel_id</code> claim. Reads only that channel\'s adult, consenting roster.')}
+${ep('GET', '/api/v1/faces/cast/tags', 'A person\'s own cast tags; revoking a grant deletes them.')}
+${ep('POST', '/api/v1/faces/library/cluster', 'A person with library consent in an allowed region. Private clusters; unknown faces stay unlabelled.')}
+${ep('GET', '/api/v1/faces/library/groups', 'A person\'s own groups. No subject or public index.')}
+${ep('POST', '/api/v1/faces/library/correct', 'A person\'s own group correction: <code>exclude</code>, <code>merge</code> or <code>split</code>.')}
+</dl>
+<p class="vi-fine"><a href="/people">Manage choices</a> · <a href="/people/privacy">Retention and privacy</a></p></section>
 <section id="vi-capabilities"><h2>Capabilities and grants</h2>
-<p class="vi-fine">Vision needs no new AI capability: outgoing calls are <code>ai.run.create</code> to OpenVibe.AI, audience <code>openvibe.ai</code>, namespace <code>ai.*</code>. The capabilities Vision offers are <code>vision.ask</code>, <code>vision.ocr</code>, <code>vision.compare</code> and <code>vision.ui.check</code>; the main session registers the manifests and grants them to Design (the Arena) and any other caller.</p>
+<p class="vi-fine">Vision needs no new AI capability: outgoing calls are <code>ai.run.create</code> to OpenVibe.AI, audience <code>openvibe.ai</code>, namespace <code>ai.*</code>. The capabilities Vision offers are <code>vision.ask</code>, <code>vision.ocr</code>, <code>vision.compare</code>, <code>vision.ui.check</code> and <code>vision.face.cast.match</code>; the main session registers the manifests and grants them to Design (the Arena), Live (the cast roster) and any other caller.</p>
 <pre class="vi-code">POST /api/v1/ui-check
 Authorization: Bearer &lt;Network service token for openvibe.vision&gt;
 Content-Type: application/json
@@ -244,7 +259,7 @@ Content-Type: application/json
 { "html": "&lt;!doctype html&gt;…", "viewport": { "w": 390, "h": 844 } }</pre>
 </section>
 <section id="vi-limits"><h2>What leaves this host</h2>
-<p class="vi-fine">The local OCR engine and the UI check never leave the host. Only an ask, compare or OCR fallback sends the normalised image to OpenVibe.AI; AI's own routing, quotas and provenance apply. Vision holds no provider key. No image bytes are stored, and no face recognition is ever used. Public AI text is passed through <code>noLooks</code>; a look-naming answer is replaced.</p>
+<p class="vi-fine">The local OCR engine, UI check and all face tools run on this host. Only an ask, compare or OCR fallback sends the normalised image to OpenVibe.AI; face images and templates never go there. General answers store no image bytes; opt-in face uploads are encrypted and private. Public AI text is passed through <code>noLooks</code>; a look-naming answer is replaced.</p>
 <p class="vi-fine">AI on this host: ${ai ? 'configured' : 'not configured (local engines only)'}. Model hints: ${esc((models || []).join(', ') || 'from AI\'s routes at request time')}.</p>
 </section>
 <section id="vi-search"><h2>Search</h2><p class="vi-fine">v1 has no public objects: answers and UI checks belong to the caller and are not indexed, so Vision writes no Search document and has no outbox. The v2 Arena's public leaderboards are where public records will begin.</p></section>

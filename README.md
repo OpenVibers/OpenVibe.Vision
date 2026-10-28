@@ -2,7 +2,7 @@
 
 > See with the best model for the job.
 
-**Status:** v1 written and tested (see [STATUS.json](STATUS.json)).
+**Status:** v1 and the §5.8b faces work written and tested (see [STATUS.json](STATUS.json)).
 **Domain:** `openvibe.vision` · **Port:** 5130 · **Service id:** `vision` · **Env prefix:** `VISION`
 **License:** AGPL-3.0-only (same as every OpenVibe service).
 
@@ -10,7 +10,7 @@ OpenVibe.Vision answers questions about a picture. The cheapest engine goes firs
 answers a read question for nothing; otherwise OpenVibe.AI's routed vision model answers. The same image can be run
 through the local reader and up to three AI model hints side by side, with the model that actually answered, its
 cost and its measured latency. The UI check reads HTML, a public URL or a screenshot on this host and returns
-overflow, cut-off text, low contrast, overlap and layering faults as JSON. **No face recognition, ever.**
+overflow, cut-off text, low contrast, overlap and layering faults as JSON. Face tools run locally; identifying matches require separate, purpose-scoped consent.
 
 ## v1 scope (plan §5.8)
 
@@ -23,12 +23,30 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. **No 
   cost and latency; `GET /api/v1/benchmarks` aggregates them with no subject or answer text.
 - **The UI check as an API.** `POST /api/v1/ui-check` is what Design's Arena will call, with a service token holding
   `vision.ui.check`. It also works for a signed-in person and, for HTML/URL/screenshot, anonymously.
-- **No faces, no looks.** No face recognition is implemented or called; the prompt also forbids naming or identifying a person. Public AI text is passed through `noLooks`;
+- **Consent-scoped faces, no looks in AI text.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. Public AI text is passed through `noLooks`;
   an answer that names a person's looks is replaced by a neutral sentence.
-- **Privacy.** No image bytes are stored: a sha256, media type and byte count are. Answers, compare samples and UI
-  checks are exported and erased with the person's account.
+- **Privacy.** General answers store no image bytes: a sha256, media type and byte count are stored. Opt-in face uploads, vectors and templates are encrypted and private. Answers, compare samples, UI checks and every face row are exported and erased with the person's account.
 - **Not in v1.** Public Arena leaderboards, video, computer-use benchmarks and OpenCV jobs on Run (v2/v3). v1 has no
   public records, so it writes no Search document and has no outbox.
+
+## Faces with consent (§5.8b)
+
+`npm run models:faces` downloads pinned OpenCV Zoo YuNet and SFace weights into `DATA_DIR/models`, checking a SHA-256 before installation. They are not in git. YuNet's directory is MIT licensed; SFace's directory is Apache 2.0 licensed. **Open question before production distribution:** [SFace weight and training-data provenance](https://github.com/opencv/opencv_zoo/issues/318) needs upstream clarification. The service starts without weights or `VISION_FACE_KEY`; `/api/ready` reports an optional degraded face check. Detect/blur need only YuNet; enrolment, verification and cast matching also need SFace and the key, and answer 503 until they exist. All face inference uses `onnxruntime-node` on this host, never a cloud model.
+
+The key is `VISION_FACE_KEY` (base64 encoding of 32 random bytes). AES-256-GCM encrypts templates, Vision uploads and face vectors under the person's Network subject. Losing this key makes stored face data unreadable; rotate it only with a re-encryption migration. `VISION_FACE_MATCH_THRESHOLD` defaults to the OpenCV SFace cosine example threshold 0.363 and needs calibration before consequential use. `VISION_FACE_LIBRARY_REGIONS` is a comma-separated allowlist; empty disables library grouping everywhere. `VISION_FACE_PRIVACY_RATE_LIMIT_PER_MIN` limits anonymous detect/blur, alongside the API address limit. No face template enters Search, model prompts or Bench.
+
+The four signed text versions are exposed by `GET /api/v1/faces/consents/text`. A Network person signs one purpose at a time by sending `signed_name` and the current `text_version` to `POST /api/v1/faces/consents/:feature` (`verify`, `find`, `cast`, `library`). Cast also needs `adult: true` and a named `channel`; library needs an allowed `region`. The signed name and server time are kept in `face_consents`. `DELETE /api/v1/faces/consents/:feature` revokes and immediately deletes that purpose's template; cast revocation also removes past tags. `/people` has the same choices and `/privacy` explains retention. The site's general privacy policy remains at `/privacy-policy`.
+
+| Route | Result and scope |
+|---|---|
+| `POST /api/v1/faces/detect`, `/blur` | Anyone; boxes/count or image/png redaction, no templates or tracking. |
+| `POST /api/v1/faces/enrol/:feature` | Network person only; one face image after that feature's consent (`verify`, `find`, `cast`). |
+| `POST /api/v1/faces/verify` | Person only; `{score,match,threshold,liveness:"not_checked"}` against their own verify template. A match alone must never unlock anything: use a tested liveness component, second factor and non-biometric route before any consequential use. |
+| `POST /api/v1/faces/media`, `GET /api/v1/faces/media/:id`, `POST /api/v1/faces/find` | Person only; encrypted own Vision uploads, owner-only links and self-search matches. Media objects are deferred until a source-owner grant and open-time access check exist. |
+| `POST /api/v1/faces/cast/match` | Live service token with `vision.face.cast.match` and signed `channel_id` claim; compares only that channel's enrolled roster. Requires on-stream notice from Live. Person can inspect their own tags at `GET /api/v1/faces/cast/tags`. |
+| `POST /api/v1/faces/library/cluster`, `GET /api/v1/faces/library/groups`, `POST /api/v1/faces/library/correct` | Person only, separate opt-in and allowed region. Unknown groups have no label. Corrections: `exclude`, `merge`, `split`; switching off erases groups. |
+
+`face_consents`, `face_templates`, `face_media`, `face_tags` and `face_clusters` are created by `migrations/0002_faces.sql`. A daily job (off in `VISION_DRILL`) deletes inactive templates at three years since last use and revoked consent audit rows within one year of purpose end. ADR-033 export and account deletion include all five tables. The account export carries encrypted template and upload ciphertext; it does not expose the server key.
 
 ## What runs where
 
@@ -38,6 +56,7 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. **No 
 | OCR | this host, Tesseract 5 (`OMP_THREAD_LIMIT=1`) | 0 | no |
 | UI check (HTML/URL) | this host, static parser + WCAG maths | 0 | the URL fetch only (public HTTP) |
 | UI check (screenshot) | this host, OCR boxes + `sharp` pixels | 0 | no |
+| Face detect, blur and consented matching | this host, YuNet + SFace + ONNX Runtime | 0 | no |
 | Ask / describe / identify / count / translate | OpenVibe.AI's routed vision model | AI's own accounting | the normalised image, to OpenVibe.AI |
 | OCR AI fallback | OpenVibe.AI's routed vision model | AI's own accounting | only after an empty local pass and with consent |
 | Compare | local + AI hints | local free; AI's own accounting | the normalised image, to OpenVibe.AI |
@@ -54,8 +73,13 @@ outbound capability; AI's quotas and its own route decide whether a run is allow
 | `vision_ui_checks` | `vuc_` + ULID, subject, requester, source `html\|url\|screenshot`, URL, image sha256, viewport, engine `static-html\|screenshot`, findings jsonb, summary jsonb | `0001_initial.sql` |
 | `account_data_events` | openvibe-sdk/account-data's export/deletion receipts | `0001_initial.sql` |
 | `telemetry_samples` | aggregated request telemetry, pruned after 14 days | `0001_initial.sql` |
+| `face_consents` | subject, feature `verify\|find\|cast\|library`, channel scope, signed text version/name, granted_at, revoked_at, last_used_at, purpose_ends_at | `migrations/0002_faces.sql` |
+| `face_templates` | subject, feature, scope, AES-GCM ciphertext of the SFace vector, created/last_used times | `0002_faces.sql` |
+| `face_media` | owner, AES-GCM ciphertext of an opt-in Vision upload and its face vectors, media type | `0002_faces.sql` |
+| `face_tags` | consenting subject, channel, private media reference and time; removed on cast revocation | `0002_faces.sql` |
+| `face_clusters` | owner, media, encrypted vector, group id, optional label (null while unknown), excluded flag | `0002_faces.sql` |
 
-No table stores image bytes, a token or a provider key.
+General answer tables store no image bytes, token or provider key. The opt-in face library stores encrypted uploads and vectors.
 
 ## Does not own
 
@@ -68,7 +92,7 @@ No table stores image bytes, a token or a provider key.
 
 ## Capabilities and grants
 
-The service offers four capabilities. The main session registers their manifests and grants them; v1 checks the
+The service offers five capabilities. The main session registers their manifests and grants them; v1 checks the
 grant list directly, so a token that already carries one works.
 
 | Capability | Routes | Typical caller |
@@ -77,6 +101,7 @@ grant list directly, so a token that already carries one works.
 | `vision.ocr` | `POST /api/v1/ocr` (the AI fallback also needs a person or this grant) | a first-party service or a person |
 | `vision.compare` | `POST /api/v1/compare` | a first-party service or a person |
 | `vision.ui.check` | `POST /api/v1/ui-check`, `GET /api/v1/ui-checks/:id` | **OpenVibe.Design's Arena**, or a person |
+| `vision.face.cast.match` | `POST /api/v1/faces/cast/match` (a signed `channel_id` claim must match the request) | **OpenVibe.Live**, or a person inspecting their own tags |
 
 Outgoing: **`ai.run.create`** to OpenVibe.AI (audience `openvibe.ai`, namespace `ai.*`), minted by Network for the
 client `vision`. No new AI capability, no provider key, no direct paid provider.
@@ -125,7 +150,10 @@ Answer (abridged):
 
 Validation refusals: `vision.invalid`, `vision.invalid_task`, `vision.invalid_mode`, `vision.question_required`,
 `vision.image_required`, `vision.image_too_large`, `vision.image_private_url`, `vision.image_unsupported`,
-`vision.ocr_unavailable`, `vision.ai_unavailable`, `vision.not_found`, `vision.rate_limited`.
+`vision.ocr_unavailable`, `vision.ai_unavailable`, `vision.not_found`, `vision.rate_limited`, and the face codes
+`faces.consent_required`, `faces.signature_required`, `faces.adult_required`, `faces.region_disabled`,
+`faces.enrolment_required`, `faces.one_face_required`, `faces.model_unavailable`, `faces.key_unavailable`,
+`faces.live_grant_required`.
 
 ## Pages
 
@@ -142,6 +170,9 @@ person is `private, no-store`.
 | `/ui-check` | HTML, URL or screenshot; inline for a guest, saved at `/ui/:id` for a person |
 | `/a/:id` | one saved answer (owner or staff) |
 | `/ui/:id` | one saved UI check (owner or staff) |
+| `/people` | the four face purposes, each with its own signed switch, enrolment and off control |
+| `/privacy` | the face notice: retention, erasure, liveness and what never happens |
+| `/privacy-policy` | the site's general privacy policy |
 | `/developers` | the API, capabilities and what leaves the host |
 | 404 | the not-found page |
 
@@ -170,7 +201,8 @@ node scripts/proof.js       # local OCR + a planted UI overflow, no network and 
 The tests use a mock Network, a mock OpenVibe.AI and local image/page fixtures: migration, SSO and readiness, the
 API and its capability guards, local OCR and its fallback, compare and benchmark aggregation, the UI check (a
 planted overflow, cut-off line, low contrast, overlap and layering fault), noLooks, pages/cache, account
-export/deletion and the image SSRF guard.
+export/deletion, the image SSRF guard, and faces with a fake ONNX model (all four consent gates, opt-out erasure,
+cast-roster-only matching, AES-GCM at rest, the retention job, the region gate and ADR-033 export/deletion).
 
 ## Deploy
 
