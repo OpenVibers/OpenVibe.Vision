@@ -32,7 +32,7 @@ function createServiceReadiness({ s, config, valkey = null, release = null, ai =
                 },
             },
             { name: 'oauth_client', required: false, check: () => (config.oauth.clientSecret ? true : 'OV_OAUTH_CLIENT_SECRET unset: sign-in and AI calls cannot complete') },
-            { name: 'ai', required: false, check: () => (ai && ai.enabled ? 'AI is configured on demand; a run is only made when a local engine cannot answer' : 'OpenVibe.AI is not configured: local OCR and the UI check still serve') },
+            { name: 'ai', required: false, check: () => (ai && ai.enabled ? { ok: true, detail: { mode: 'on demand: a run is made only when a local engine cannot answer' } } : 'OpenVibe.AI is not configured: local OCR and the UI check still serve') },
             {
                 name: 'local_ocr', required: false,
                 check: async () => {
