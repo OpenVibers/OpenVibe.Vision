@@ -25,7 +25,7 @@ const { loadImage } = require('../vision/images');
 const { VisionError } = require('../vision/service');
 
 function createApi(ctx) {
-    const { config, s, principal, store, vision, ai, ocr, fetchImpl } = ctx;
+    const { config, s, principal, store, vision, ai, ocr, fetchImpl, networkTools, models: localModels } = ctx;
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
 
@@ -109,6 +109,45 @@ function createApi(ctx) {
     }
 
     r.get('/ping', (_req, res) => res.json({ ok: true, service: config.service }));
+
+    // Private tools use the verified owner user token as the caller. Rooms should forward a delegated user token;
+    // a bare service capability cannot assert ownership of private media.
+    const ownerOnly = (req, res, next) => isPerson(req) ? next() : problem(res, 403, 'vision.owner_required', 'a verified owner user token is required');
+    const owner = (req) => req.principal.subject;
+    const noRemoteSource = (req, res, next) => bodyOf(req).image_url ? invalid(res, 'private tools accept uploaded bytes or a data URL, not an unverified source URL') : next();
+
+    r.post('/alt', principal.requireCapability('vision.alt'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.alt(await imageOf(req)) }), 201));
+    r.post('/index', principal.requireCapability('vision.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
+        const b = bodyOf(req);
+        return { answer: await networkTools.index(owner(req), b.item_id, await imageOf(req), b.result_url) };
+    }, 201));
+    r.get('/find', principal.requireCapability('vision.find'), ownerOnly, (req, res) => run(res, async () => {
+        const q = String(req.query.q || '').trim();
+        if (!q || q.length > 500) throw new VisionError(400, 'vision.invalid_query', 'q must contain 1–500 characters');
+        return { answer: await networkTools.find(owner(req), q) };
+    }));
+    r.post('/find', principal.requireCapability('vision.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => ({ answer: await networkTools.find(owner(req), await imageOf(req)) })));
+    r.post('/receipt', principal.requireCapability('vision.receipt'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.readReceipt(await imageOf(req), bodyOf(req).fallback === true || bodyOf(req).fallback === 'true') }), 201));
+    r.post('/product', principal.requireCapability('vision.product'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.product(await imageOf(req), bodyOf(req).allow_rerank === true || bodyOf(req).allow_rerank === 'true') }), 201));
+    r.post('/watch', principal.requireCapability('vision.watch'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
+        const b = bodyOf(req);
+        const classes = Array.isArray(b.classes) ? b.classes : String(b.classes || '').split(',').map((x) => x.trim()).filter(Boolean);
+        if (!classes.length || classes.length > 20) throw new VisionError(400, 'vision.invalid_classes', 'send 1–20 watched classes');
+        const previous = b.previous_image ? await loadImage({ image: b.previous_image, config, fetchImpl }) : null;
+        return { answer: await networkTools.watch(await imageOf(req), classes, previous) };
+    }, 201));
+    r.post('/moments', principal.requireCapability('vision.moments'), ownerOnly, (req, res) => run(res, async () => {
+        const b = bodyOf(req);
+        if (!Array.isArray(b.frames) || b.frames.length < 1 || b.frames.length > 30) throw new VisionError(400, 'vision.invalid_frames', 'send 1–30 timestamped frames');
+        const frames = [];
+        for (const f of b.frames) {
+            if (!Number.isFinite(Number(f.timestamp_ms)) || Number(f.timestamp_ms) < 0) throw new VisionError(400, 'vision.invalid_timestamp', 'each frame needs timestamp_ms');
+            if (!f.image && !f.image_url) throw new VisionError(400, 'vision.invalid_frames', 'each frame needs image or image_url');
+            frames.push({ timestamp_ms: Number(f.timestamp_ms), image: await loadImage({ image: f.image, imageUrl: f.image_url, config, fetchImpl }) });
+        }
+        const prompts = Array.isArray(b.prompts) ? b.prompts.map(String).filter(Boolean).slice(0, 10) : ['a goal', 'a funny fall'];
+        return { answer: await networkTools.moments(frames, prompts) };
+    }, 201));
 
     // ── OCR: local first, anonymous local calls allowed ─────
     r.post('/ocr', attachUpload, principal.optional('vision.ocr', { allowAnonymous: true }), async (req, res) => {
@@ -224,7 +263,7 @@ function createApi(ctx) {
             ai: ai.enabled,
             configured: config.ai.models,
             offered: modelCache.offered,
-            local: ['tesseract'],
+            local: ['tesseract', ...(localModels.clipReady() ? ['CLIP ViT-B/32 q8'] : []), ...(localModels.detectorReady() ? ['DETR ResNet-50 q8'] : []), 'histogram'],
             note: 'provider:model hints; OpenVibe.AI\'s router is the authority and its provenance is what an answer reports',
         });
     });
