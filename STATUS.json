@@ -1,0 +1,68 @@
+{
+  "repository": "OpenVibers/OpenVibe.Vision",
+  "version": "0.1.0",
+  "stage": "product",
+  "code": true,
+  "wave": "W21",
+  "plan": "OpenVibe.Vision v1 (plan 2026-10-28 §5.8): ask a picture, compare models side by side, OCR with a local engine first, and the UI check as an API other services call",
+  "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9, Tesseract 5, sharp",
+  "port": "5130",
+  "domain": "openvibe.vision",
+  "contracts": "openvibe-contracts v0.229.0",
+  "sdk": "openvibe-sdk v0.70.0",
+  "shared": "openvibe-shared v4.31.0",
+  "packages": [
+    "openvibe-contracts v0.229.0",
+    "openvibe-sdk v0.70.0",
+    "openvibe-shared v4.31.0"
+  ],
+  "capabilities": [
+    "vision.ask",
+    "vision.ocr",
+    "vision.compare",
+    "vision.ui_check"
+  ],
+  "outboundCapabilities": [
+    "ai.run.create"
+  ],
+  "capabilitiesRegistered": false,
+  "serviceManifestRegistered": false,
+  "summary": "OpenVibe.Vision v1 sees with the best model for the job. A read question goes to the local Tesseract reader first; if the local engine cannot answer, OpenVibe.AI's routed vision model does, and every answer names the model, provider, route, cost and latency and says why it was chosen. A compare runs the same image through the local reader and up to three AI model hints side by side. The UI check reads HTML, a public URL or a screenshot locally and returns overflow, cut-off text, low contrast, overlap and layering findings as JSON; Design's Arena can call POST /api/v1/ui-check with a service token holding vision.ui_check. No image bytes are stored, no provider key exists here, and no face recognition is ever used.",
+  "works": [
+    "Ask a picture: multipart upload, data URL or public image URL; task ask/describe/identify/count/translate/ocr; auto/local/ai modes",
+    "Local-first OCR: Tesseract 5 on this host, word boxes and mean confidence, zero cost, an optional AI fallback only after an empty local pass",
+    "OpenVibe.AI gateway: first-party service token (ai.run.create, namespace ai.*), OpenAI-compatible image message, AI provenance, quota and cost, no direct provider",
+    "Compare: local OCR plus one AI run per model hint, requested vs answered model, measured latency and AI cost, sample rows",
+    "UI check: static HTML/CSS pass (overflow, cut-off, contrast, overlap, layering), public URL pass with SSRF guard, screenshot pass through OCR boxes and sharp pixels",
+    "No looks: public AI text is passed through noLooks; an answer that names looks is replaced by a neutral sentence",
+    "No face recognition: not implemented, not called, stated on the pages",
+    "Answers, compare samples and UI checks stored without image bytes; account export/deletion over all three",
+    "Network sign-in as OAuth client vision (PKCE S256, vision_at/vision_rt/vision_oauth), truthful readiness, loopback metrics",
+    "Server-rendered pages with stable vi- ids/classes, discovery artifacts, deploy unit and nginx vhost, CI"
+  ],
+  "notYet": [
+    "Public Vision Arena leaderboards and public test sets (v2); v1 stores aggregate compare samples and exposes them without subjects",
+    "Video and computer-use benchmarks (v2/v3)",
+    "OpenCV jobs placed on OpenVibe.Run; v1 uses Tesseract on this host and sharp for pixels",
+    "A real browser-rendered UI pass (JavaScript execution, getBoundingClientRect, computed styles); v1 is a documented static pass plus a screenshot pass",
+    "Search documents/outbox: v1 has no public records to index",
+    "A per-person history page; saved answers are reachable by id for their owner and staff",
+    "The capability manifests and grants; the main session registers vision.* and grants them"
+  ],
+  "deployed": false,
+  "features": [
+    "ask a picture",
+    "local-first OCR",
+    "OpenVibe.AI routed answers",
+    "model compare with cost and latency",
+    "UI check: overflow, cut-off, contrast, overlap, layering",
+    "noLooks and no face recognition",
+    "account export and deletion",
+    "Network sign-in",
+    "server-rendered pages",
+    "discovery",
+    "deploy files"
+  ],
+  "deployment": "not deployed: the unit and nginx vhost are deploy/systemd/openvibe-vision.service and deploy/nginx/openvibe.vision.conf",
+  "updated": "2026-10-28"
+}

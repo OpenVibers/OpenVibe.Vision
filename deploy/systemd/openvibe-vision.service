@@ -1,0 +1,32 @@
+[Unit]
+Description=OpenVibe.Vision — see with the best model for the job.
+# Network (sign-in, JWKS, AI tokens, account events) and AI should be up first, but Vision degrades honestly
+# without them: local OCR and the UI check serve, and AI-dependent routes answer 503 (see /api/ready).
+After=network.target postgresql.service pgbouncer.service valkey-server.service openvibe-ai.service
+Wants=openvibe-network.service postgresql.service pgbouncer.service valkey-server.service openvibe-ai.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/openvibe.vision
+EnvironmentFile=/etc/openvibe/vision.env
+Environment=NODE_ENV=production
+Environment=PORT=5130
+Environment=HOST=127.0.0.1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env node /opt/openvibe.vision/server/index.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+# In-flight requests get the 10 s drain.
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# OpenVibe.Vision's own database is PostgreSQL on the host's data role; the code tree stays read-only.
+# Tesseract is read from /usr/bin and its language data from /usr/share/tesseract-ocr (read-only).
+
+[Install]
+WantedBy=multi-user.target
