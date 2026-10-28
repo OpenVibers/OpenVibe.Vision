@@ -230,6 +230,12 @@ ${ep('POST', '/api/v1/ask (alias /api/v1/describe)', 'One image and a question: 
 ${ep('POST', '/api/v1/ocr', 'The local Tesseract reader. <code>fallback=1</code> asks AI only when no text is found and the caller is signed in or holds <code>vision.ocr</code>.')}
 ${ep('POST', '/api/v1/compare', 'The same image through local OCR and one to three AI hints (<code>models</code>). Returns each engine\'s answer, provider, model, cost and latency. Capability: <code>vision.compare</code>.')}
 ${ep('POST', '/api/v1/ui-check', 'HTML, URL or screenshot with <code>viewport</code>. Returns <code>findings</code>: overflow, cut_off, contrast, overlap and layering. Capability: <code>vision.ui.check</code>.')}
+${ep('POST', '/api/v1/alt', 'Pics, Media and Chat send an image for short editable alt text. Capability: <code>vision.alt</code>.')}
+${ep('POST', '/api/v1/index; GET or POST /api/v1/find', 'Media and Search index an owner image and find it by words or image. Requires the owner user token. Capability: <code>vision.find</code>.')}
+${ep('POST', '/api/v1/receipt', 'Food sends a receipt image; Tesseract reads store, items and total first. Capability: <code>vision.receipt</code>.')}
+${ep('POST', '/api/v1/product', 'Deals sends a product image for description, CLIP vector and configured offer candidates. Capability: <code>vision.product</code>.')}
+${ep('POST', '/api/v1/watch', 'Cam sends an owner-provided still and watched classes. Requires the owner user token. Capability: <code>vision.watch</code>.')}
+${ep('POST', '/api/v1/moments', 'Live or Media sends timestamped frames for scenes and candidate moments. Requires the owner user token. Capability: <code>vision.moments</code>.')}
 ${ep('GET', '/api/v1/answers/:id', 'One saved answer, for its owner or a service holding the route capability.')}
 ${ep('GET', '/api/v1/ui-checks/:id', 'One saved UI check, for its owner or a service holding <code>vision.ui.check</code>.')}
 ${ep('GET', '/api/v1/models', 'The AI route\'s offered provider:model hints and the local engine. No subject data.')}

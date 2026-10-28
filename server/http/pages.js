@@ -12,8 +12,9 @@
  *   /ui-check         HTML, URL or screenshot (POST /ui-check → /ui/:id, or inline for a guest)
  *   /a/:id            one saved answer (owner or staff)
  *   /ui/:id           one saved UI check (owner or staff)
+ *   /find, /read, /watch   the network tools (private search, receipts, camera)
  *   /people           the four face consents, each with its own signed switch
- *   /privacy          face retention, liveness and what never happens
+ *   /people/privacy   face retention, liveness and what never happens
  *   /developers       the API
  *   404
  */
@@ -62,7 +63,7 @@ function createPageRoutes(ctx) {
     // ── Home ─────────────────────────────────────────────────
     r.get('/', (req, res) => page(req, res, {
         index: true, cache: PUBLIC_CACHE, title: null,
-        description: 'Ask a picture, read text, check a page and use local face privacy tools with consent for personal matching.',
+        description: 'Ask a picture, read text, check a page, find your images and use local face privacy tools with consent for personal matching.',
         jsonLd: homeJsonLd(config),
         body: raw(views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled })),
     }));
@@ -90,6 +91,14 @@ function createPageRoutes(ctx) {
         try { await faces.enrol(req.viewer.subject, req.params.feature, (await imageOf(req)).buffer, req.body.channel); return res.redirect(303, '/people'); }
         catch (err) { return page(req, res, { title: 'People', body: raw(views.formError(err.detail || err.message || 'Enrolment failed.')) }, err.status || 400); }
     });
+
+    const toolPage = (req, res, title, intro, fields) => page(req, res, {
+        title, cache: PUBLIC_CACHE,
+        body: html`<main class="vi-wrap vi-page-pad vi-narrow"><header class="vi-section-head"><h1>${title}</h1><p class="vi-lede">${intro}</p></header><div class="vi-panel"><p class="vi-fine">These tools are available through Vision's JSON API. Sign in and send an image as multipart <code>image</code> or a data URL.</p>${fields}</div></main>`,
+    });
+    r.get('/find', (req, res) => toolPage(req, res, 'Find in your images', 'Private visual search uses local CLIP embeddings and checks the owner on each read.', html`<form method="get" action="/find"><label class="vi-label" for="vi-find-q">Search words</label><input id="vi-find-q" name="q" value="${String(req.query.q || '').slice(0, 500)}"><button type="submit">Search</button></form><p class="vi-fine">Room call: GET /api/v1/find?q= with the owner token; POST /api/v1/index to add an image.</p>`));
+    r.get('/read', (req, res) => toolPage(req, res, 'Read a receipt', 'Local Tesseract extracts store, line items and total; a routed fallback is optional.', html`<p class="vi-fine">Food calls POST /api/v1/receipt with the image and optional fallback=true. For plain text, use POST /api/v1/ocr.</p>`));
+    r.get('/watch', (req, res) => toolPage(req, res, 'Watch a still', 'Detect selected objects or a scene change in an owner-supplied camera still.', html`<p class="vi-fine">Cam calls POST /api/v1/watch with the owner token, image and classes. Send previous_image for scene change.</p>`));
 
     // ── Ask ──────────────────────────────────────────────────
     r.get('/ask', (req, res) => page(req, res, {

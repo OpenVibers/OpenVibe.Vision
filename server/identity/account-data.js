@@ -16,6 +16,7 @@ const TABLES = [
     { table: 'face_media', subject: 'subject', value: (usr) => usr, file: 'face-media.json', erase: 'delete' },
     { table: 'face_templates', subject: 'subject', value: (usr) => usr, file: 'face-templates.json', erase: 'delete' },
     { table: 'face_consents', subject: 'subject', value: (usr) => usr, file: 'face-consents.json', erase: 'delete' },
+    { table: 'vision_private_index', subject: 'owner', value: (usr) => usr, file: 'private-index.json', erase: 'delete' },
     // Compare samples before their answer, so the deletion counts them itself rather than through the FK cascade.
     { table: 'vision_compare_samples', subject: 'subject', value: (usr) => usr, file: 'compare.json', erase: 'delete' },
     { table: 'vision_answers', subject: 'subject', value: (usr) => usr, file: 'answers.json', erase: 'delete' },

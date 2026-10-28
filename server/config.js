@@ -84,6 +84,11 @@ function load(env = process.env) {
             lang: env.VISION_OCR_LANG || 'eng',
             timeoutMs: Math.max(2000, int(env.VISION_OCR_TIMEOUT_MS, 20000)),
         },
+        models: { dir: require('path').resolve(env.DATA_DIR || require('path').join(__dirname, '..', 'data'), 'models') },
+        offers: {
+            dealsUrl: env.VISION_DEALS_SEARCH_URL || '',
+            shoesUrl: env.VISION_SHOES_SEARCH_URL || '',
+        },
 
         // Image inputs: upload (multipart), a data: URL, or a public https URL fetched with the private-address
         // guard. No image bytes are stored in the database or written to a page.

@@ -67,6 +67,8 @@ async function createApp(opts = {}) {
     const ai = opts.ai || createAi({ config, fetchImpl, log });
     const vision = createVision({ config, s, ocr, ai, store, log });
     const faces = createFaces({ s, config, model: opts.facesModel || createFacesModel({ dir: config.faces.modelsDir }) });
+    const models = require('./vision/local-models').createLocalModels({ config, clip: opts.clip, detector: opts.detector });
+    const networkTools = require('./vision/network-tools').createNetworkTools({ s, ai, ocr, models, config, fetchImpl });
 
     // Account export and deletion (ADR-033). The sender posts to Network's internal routes with this service's own
     // client-credentials token; a test injects a stand-in through opts.accountSend.
@@ -75,7 +77,7 @@ async function createApp(opts = {}) {
         ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret, fetch: fetchImpl })
         : async () => { throw new Error('OV_OAUTH_CLIENT_SECRET is not set: Vision cannot answer account events'); });
 
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, accountData, accountSend, log, fetchImpl };
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, log, fetchImpl };
 
     const app = express();
     app.disable('x-powered-by');
@@ -118,7 +120,7 @@ async function createApp(opts = {}) {
     // ── Machine endpoints ───────────────────────────────────
     app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'openvibe-vision', name: 'OpenVibe.Vision', version: VERSION }));
     release.mount(app, { registry: metrics.registry });
-    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, faces });
+    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, faces, models });
     app.get('/api/ready', readiness.handler);
 
     // ── Who is asking (verified offline; refreshed when expired) ──

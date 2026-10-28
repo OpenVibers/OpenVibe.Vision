@@ -33,7 +33,13 @@ The first version: see with the best model for the job.
   roster and revoking deletes past tags. Library grouping is region-gated and unknown faces stay unlabelled.
   `POST /api/v1/faces/verify` returns a score, threshold and `liveness: "not_checked"`, never an identity. The daily
   retention job (off in `VISION_DRILL`) expires templates three years after last use. `npm run models:faces` pins the
-  YuNet and SFace downloads by URL and SHA-256. Pages: `/people` and `/privacy`.
+  YuNet and SFace downloads by URL and SHA-256. Pages: `/people` and `/people/privacy`; `/privacy` stays the shared
+  legal policy.
+- **Network tools, wave 1.** `POST /api/v1/alt` (routed editable alt text), `POST /api/v1/index` and
+  `GET`/`POST /api/v1/find` (owner-scoped CLIP search), `POST /api/v1/receipt` (local Tesseract first),
+  `POST /api/v1/product` (CLIP vector plus configured offers), `POST /api/v1/watch` (DETR boxes and scene change)
+  and `POST /api/v1/moments` (scene histogram plus CLIP prompts). Each answer carries a receipt. `npm run
+  models:fetch` downloads pinned quantized CLIP and DETR weights; missing weights degrade to an honest 503.
 - **Privacy.** General answers store no image bytes: an answer keeps a sha256, the media type, the cleaned text and
   the model provenance. Opt-in face uploads, vectors and templates are encrypted. Answers, compare samples, UI checks
   and every face row are exported and erased with the person's account.
@@ -42,6 +48,7 @@ The first version: see with the best model for the job.
   server-rendered with stable `vi-` ids/classes; `public/css/vision.css` and `public/js/vision.js` are
   one-comment placeholders for the main session.
 - **Tests.** Migration, SSO, API, OCR, compare/benchmarks, the UI check (including a planted overflow), noLooks,
-  pages/cache, account export/deletion, and faces with a fake ONNX model (consent gates, roster-only matching,
-  encryption at rest, opt-out, retention, region gate and export/deletion), each in its own process on a temporary
-  PGlite database with a mock Network, a mock OpenVibe.AI and local image/page fixtures.
+  pages/cache, account export/deletion, faces with a fake ONNX model (consent gates, roster-only matching,
+  encryption at rest, opt-out, retention, region gate and export/deletion), and the network tools with fake CLIP,
+  DETR and OCR, each in its own process on a temporary PGlite database with a mock Network, a mock OpenVibe.AI and
+  local image/page fixtures.

@@ -2,7 +2,7 @@
 
 > See with the best model for the job.
 
-**Status:** v1 and the §5.8b faces work written and tested (see [STATUS.json](STATUS.json)).
+**Status:** v1, the §5.8b faces work and the network tools written and tested (see [STATUS.json](STATUS.json)).
 **Domain:** `openvibe.vision` · **Port:** 5130 · **Service id:** `vision` · **Env prefix:** `VISION`
 **License:** AGPL-3.0-only (same as every OpenVibe service).
 
@@ -35,7 +35,7 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. Face 
 
 The key is `VISION_FACE_KEY` (base64 encoding of 32 random bytes). AES-256-GCM encrypts templates, Vision uploads and face vectors under the person's Network subject. Losing this key makes stored face data unreadable; rotate it only with a re-encryption migration. `VISION_FACE_MATCH_THRESHOLD` defaults to the OpenCV SFace cosine example threshold 0.363 and needs calibration before consequential use. `VISION_FACE_LIBRARY_REGIONS` is a comma-separated allowlist; empty disables library grouping everywhere. `VISION_FACE_PRIVACY_RATE_LIMIT_PER_MIN` limits anonymous detect/blur, alongside the API address limit. No face template enters Search, model prompts or Bench.
 
-The four signed text versions are exposed by `GET /api/v1/faces/consents/text`. A Network person signs one purpose at a time by sending `signed_name` and the current `text_version` to `POST /api/v1/faces/consents/:feature` (`verify`, `find`, `cast`, `library`). Cast also needs `adult: true` and a named `channel`; library needs an allowed `region`. The signed name and server time are kept in `face_consents`. `DELETE /api/v1/faces/consents/:feature` revokes and immediately deletes that purpose's template; cast revocation also removes past tags. `/people` has the same choices and `/privacy` explains retention. The site's general privacy policy remains at `/privacy-policy`.
+The four signed text versions are exposed by `GET /api/v1/faces/consents/text`. A Network person signs one purpose at a time by sending `signed_name` and the current `text_version` to `POST /api/v1/faces/consents/:feature` (`verify`, `find`, `cast`, `library`). Cast also needs `adult: true` and a named `channel`; library needs an allowed `region`. The signed name and server time are kept in `face_consents`. `DELETE /api/v1/faces/consents/:feature` revokes and immediately deletes that purpose's template; cast revocation also removes past tags. `/people` has the same choices and `/people/privacy` explains face retention. The site's shared legal privacy policy remains at `/privacy`.
 
 | Route | Result and scope |
 |---|---|
@@ -46,7 +46,7 @@ The four signed text versions are exposed by `GET /api/v1/faces/consents/text`. 
 | `POST /api/v1/faces/cast/match` | Live service token with `vision.face.cast.match` and signed `channel_id` claim; compares only that channel's enrolled roster. Requires on-stream notice from Live. Person can inspect their own tags at `GET /api/v1/faces/cast/tags`. |
 | `POST /api/v1/faces/library/cluster`, `GET /api/v1/faces/library/groups`, `POST /api/v1/faces/library/correct` | Person only, separate opt-in and allowed region. Unknown groups have no label. Corrections: `exclude`, `merge`, `split`; switching off erases groups. |
 
-`face_consents`, `face_templates`, `face_media`, `face_tags` and `face_clusters` are created by `migrations/0002_faces.sql`. A daily job (off in `VISION_DRILL`) deletes inactive templates at three years since last use and revoked consent audit rows within one year of purpose end. ADR-033 export and account deletion include all five tables. The account export carries encrypted template and upload ciphertext; it does not expose the server key.
+`face_consents`, `face_templates`, `face_media`, `face_tags` and `face_clusters` are created by `migrations/0003_faces.sql`. A daily job (off in `VISION_DRILL`) deletes inactive templates at three years since last use and revoked consent audit rows within one year of purpose end. ADR-033 export and account deletion include all five tables. The account export carries encrypted template and upload ciphertext; it does not expose the server key.
 
 ## What runs where
 
@@ -73,11 +73,11 @@ outbound capability; AI's quotas and its own route decide whether a run is allow
 | `vision_ui_checks` | `vuc_` + ULID, subject, requester, source `html\|url\|screenshot`, URL, image sha256, viewport, engine `static-html\|screenshot`, findings jsonb, summary jsonb | `0001_initial.sql` |
 | `account_data_events` | openvibe-sdk/account-data's export/deletion receipts | `0001_initial.sql` |
 | `telemetry_samples` | aggregated request telemetry, pruned after 14 days | `0001_initial.sql` |
-| `face_consents` | subject, feature `verify\|find\|cast\|library`, channel scope, signed text version/name, granted_at, revoked_at, last_used_at, purpose_ends_at | `migrations/0002_faces.sql` |
-| `face_templates` | subject, feature, scope, AES-GCM ciphertext of the SFace vector, created/last_used times | `0002_faces.sql` |
-| `face_media` | owner, AES-GCM ciphertext of an opt-in Vision upload and its face vectors, media type | `0002_faces.sql` |
-| `face_tags` | consenting subject, channel, private media reference and time; removed on cast revocation | `0002_faces.sql` |
-| `face_clusters` | owner, media, encrypted vector, group id, optional label (null while unknown), excluded flag | `0002_faces.sql` |
+| `face_consents` | subject, feature `verify\|find\|cast\|library`, channel scope, signed text version/name, granted_at, revoked_at, last_used_at, purpose_ends_at | `migrations/0003_faces.sql` |
+| `face_templates` | subject, feature, scope, AES-GCM ciphertext of the SFace vector, created/last_used times | `0003_faces.sql` |
+| `face_media` | owner, AES-GCM ciphertext of an opt-in Vision upload and its face vectors, media type | `0003_faces.sql` |
+| `face_tags` | consenting subject, channel, private media reference and time; removed on cast revocation | `0003_faces.sql` |
+| `face_clusters` | owner, media, encrypted vector, group id, optional label (null while unknown), excluded flag | `0003_faces.sql` |
 
 General answer tables store no image bytes, token or provider key. The opt-in face library stores encrypted uploads and vectors.
 
@@ -92,7 +92,7 @@ General answer tables store no image bytes, token or provider key. The opt-in fa
 
 ## Capabilities and grants
 
-The service offers five capabilities. The main session registers their manifests and grants them; v1 checks the
+The service offers eleven capabilities. The main session registers their manifests and grants them; v1 checks the
 grant list directly, so a token that already carries one works.
 
 | Capability | Routes | Typical caller |
@@ -102,6 +102,12 @@ grant list directly, so a token that already carries one works.
 | `vision.compare` | `POST /api/v1/compare` | a first-party service or a person |
 | `vision.ui.check` | `POST /api/v1/ui-check`, `GET /api/v1/ui-checks/:id` | **OpenVibe.Design's Arena**, or a person |
 | `vision.face.cast.match` | `POST /api/v1/faces/cast/match` (a signed `channel_id` claim must match the request) | **OpenVibe.Live**, or a person inspecting their own tags |
+| `vision.alt` | `POST /api/v1/alt` | Pics, Media and Chat |
+| `vision.find` | `POST /api/v1/index`, `GET`/`POST /api/v1/find` (owner user token) | Media and Search |
+| `vision.receipt` | `POST /api/v1/receipt` | Food |
+| `vision.product` | `POST /api/v1/product` | Deals |
+| `vision.watch` | `POST /api/v1/watch` (owner user token) | Cam |
+| `vision.moments` | `POST /api/v1/moments` (owner user token) | Live and Media |
 
 Outgoing: **`ai.run.create`** to OpenVibe.AI (audience `openvibe.ai`, namespace `ai.*`), minted by Network for the
 client `vision`. No new AI capability, no provider key, no direct paid provider.
@@ -170,9 +176,12 @@ person is `private, no-store`.
 | `/ui-check` | HTML, URL or screenshot; inline for a guest, saved at `/ui/:id` for a person |
 | `/a/:id` | one saved answer (owner or staff) |
 | `/ui/:id` | one saved UI check (owner or staff) |
+| `/find` | private visual search over a person's own indexed images |
+| `/read` | the receipt reader |
+| `/watch` | watched objects and scene change in a camera still |
 | `/people` | the four face purposes, each with its own signed switch, enrolment and off control |
-| `/privacy` | the face notice: retention, erasure, liveness and what never happens |
-| `/privacy-policy` | the site's general privacy policy |
+| `/people/privacy` | the face notice: retention, erasure, liveness and what never happens |
+| `/privacy` | the shared legal privacy policy |
 | `/developers` | the API, capabilities and what leaves the host |
 | 404 | the not-found page |
 
@@ -213,3 +222,24 @@ cast-roster-only matching, AES-GCM at rest, the retention job, the region gate a
 ## License
 
 AGPL-3.0-only. See [LICENSE](LICENSE).
+
+## Network tools, wave 1
+
+All six tools are JSON APIs. Successful `answer` objects carry a `receipt` with engine, model, `cost_usd`, `ms`, confidence and retention. An image is multipart `image` or JSON `image` data URL unless a route says otherwise. Vision does not retain image bytes.
+
+| Room call | Capability | Notes |
+|---|---|---|
+| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
+| Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
+| Food → `POST /api/v1/receipt` | `vision.receipt` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
+| Deals → `POST /api/v1/product` | `vision.product` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
+| Cam → `POST /api/v1/watch` | `vision.watch` | Owner's verified user token; upload still and `classes` array; optional `previous_image` data URL for scene change. |
+| Live, Media → `POST /api/v1/moments` | `vision.moments` | Owner's verified user token; `{frames:[{timestamp_ms,image|image_url}],prompts?}`. Scene histogram and CLIP prompt matching. |
+
+For private index, watch and moments, a service capability alone does not assert a source owner's grant. The room should call with the owner's delegated Network user token. Private index and watch reject `image_url`; the owner must supply bytes or a data URL. Moments accepts public frame URLs under Vision's existing guarded image fetch, or frame data URLs. The room that opens a returned `result_url` must check its own source grant again.
+
+`npm run models:fetch` is an explicit, revision-pinned download into `${DATA_DIR:-data}/models`. It fetches quantized ONNX CLIP ViT-B/32 (`Xenova/clip-vit-base-patch32`, derived from OpenAI CLIP) and DETR ResNet-50 (`Xenova/detr-resnet-50`, derived from Facebook DETR). The local model loader never downloads weights during a request. Missing weights return 503 for model-dependent operations; histogram-only scene change remains available. CLIP code and model are listed as MIT, but the original checkpoint's weight licence has an [open clarification request](https://huggingface.co/openai/clip-vit-base-patch32/discussions/72); confirm this before commercial distribution. DETR model and weights are [Apache 2.0](https://huggingface.co/facebook/detr-resnet-50). We use DETR rather than Ultralytics (AGPL) or RF-DETR Nano because a supported local Transformers.js ONNX export exists for DETR. `@huggingface/transformers` is Apache 2.0. Tesseract is Apache 2.0.
+
+Private embeddings are JSON vectors in PostgreSQL, scored in JavaScript after a mandatory `owner` filter. Vision has no pgvector migration or extension requirement. The v1 search cap is 5,000 items per owner.
+
+Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEARCH_URL`, both fixed operator URLs returning JSON `{offers:[{title,url,price?}]}` or `{results:[...]}`. Deals currently exposes public `GET /api/v1/offers` without a query filter, and its `/search?q=` is an HTML page; open.shoes has no implemented API in this workspace yet. Until those rooms expose a structured search endpoint, `/product` returns the description and embedding with an empty `offers` list and a warning. It does not fabricate matches.
