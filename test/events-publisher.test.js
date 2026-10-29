@@ -61,6 +61,15 @@ const { createPublisher } = require('../server/events/publisher');
             const r = await t.get('/api/v1/ui-check', { as: user, json: { html: '<p>hello</p>' } });
             assert.strictEqual(r.status, 201, r.text);
             assert.deepStrictEqual(calls, [{ path: '/ui-check', subject: user.subject, id: r.json().check.id }]);
+            const mcp = await t.get('/mcp', { bearer: t.network.userToken(user), json: {
+                jsonrpc: '2.0', id: 1, method: 'tools/call',
+                params: { name: 'vision.check_ui', arguments: { html: '<p>hello</p>' } },
+            } });
+            assert.strictEqual(mcp.status, 200, mcp.text);
+            assert.strictEqual(mcp.json().result.isError, false, mcp.text);
+            assert.strictEqual(calls.length, 2);
+            assert.strictEqual(calls[1].path, '/ui-check');
+            assert.strictEqual(calls[1].subject, user.subject);
         } finally { await t.close(); }
     });
     done();

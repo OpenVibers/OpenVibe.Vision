@@ -18,7 +18,7 @@ const TOOLS = Object.freeze([
     { name: 'vision.find_similar', description: 'Search your private visual index by image.', inputSchema: input({ image: image.image }, ['image']) },
     { name: 'vision.search_my_media', description: 'Search your private visual index by words.', inputSchema: input({ query: { type: 'string' } }, ['query']) },
     { name: 'vision.describe_clip', description: 'Find scene changes and moments in your own frames.', inputSchema: input({ frames: { type: 'array', items: { type: 'object' } }, prompts: { type: 'array', items: { type: 'string' } } }, ['frames']) },
-    { name: 'vision.detect_objects', description: 'Detect requested object classes in a source you own.', inputSchema: input({ image: image.image, classes: { type: 'array', items: { type: 'string' } } }, ['image', 'classes']) },
+    { name: 'vision.detect_objects', description: 'Detect requested object classes in a source you own.', inputSchema: input({ image: image.image, classes: { type: 'array', items: { type: 'string' } }, source_ref: { type: 'string' } }, ['image', 'classes']) },
     { name: 'vision.blur_faces', description: 'Blur faces without identifying anyone.', inputSchema: input(image) },
     { name: 'vision.check_ui', description: 'Check a page or screenshot for layout and accessibility faults.', inputSchema: input({ ...image, html: { type: 'string' }, url: { type: 'string' }, viewport: { type: 'object' } }) },
     { name: 'vision.compare_models', description: 'Compare OCR with up to three routed model hints.', inputSchema: input({ ...image, question: { type: 'string' }, models: { type: 'array', items: { type: 'string' } } }) },
@@ -32,6 +32,11 @@ const ACCESS = Object.freeze({
     'vision.detect_objects': ['vision.camera.watch', 'person'], 'vision.blur_faces': ['vision.face.blur', 'anonymous'],
     'vision.check_ui': ['vision.ui.check', 'anonymous'], 'vision.compare_models': ['vision.model.compare'],
     'vision.get_job': ['vision.image.ask'],
+});
+const EVENT_PATH = Object.freeze({
+    'vision.ask_image': '/ask', 'vision.read_text': '/ocr', 'vision.translate_sign': '/ask',
+    'vision.find_similar': '/find', 'vision.search_my_media': '/find', 'vision.describe_clip': '/moments',
+    'vision.detect_objects': '/watch', 'vision.check_ui': '/ui-check', 'vision.compare_models': '/compare',
 });
 
 function rpcResult(id, value) { return { jsonrpc: '2.0', id, result: value }; }
@@ -153,7 +158,15 @@ function mcpRouter(ctx) {
                         if (req.principal.kind === 'anonymous') challenge(res, name === 'vision.get_job' && String(args.id || '').startsWith('vuc_') ? 'vision.ui.check' : ACCESS[name][0]);
                         responses.push(toolError(id, denied)); continue;
                     }
-                    try { responses.push(toolResult(id, await invoke(name, args, req, ctx))); }
+                    try {
+                        const value = await invoke(name, args, req, ctx);
+                        if (EVENT_PATH[name]) {
+                            const eventReq = { principal: req.principal, ov: req.ov, path: EVENT_PATH[name], body: args, visionTask: name === 'vision.translate_sign' ? 'translate' : undefined };
+                            await ctx.eventPublisher.result(eventReq, value);
+                            await ctx.eventPublisher.alert(eventReq, value);
+                        }
+                        responses.push(toolResult(id, value));
+                    }
                     catch (err) { responses.push(toolError(id, err.detail || err.message || 'Tool failed')); }
                 } else responses.push(rpcError(id, -32601, 'Method not found'));
             }

@@ -33,7 +33,7 @@ function createPublisher({ config, fetchImpl = globalThis.fetch, log = console }
         } catch (err) { log.warn('[OpenVibe.Vision] event publish failed:', String(err && err.message || err).slice(0, 180)); }
     }
     async function result(req, out) {
-        const task = TASKS[req.path];
+        const task = req.visionTask || TASKS[req.path];
         if (!task || !out) return;
         const value = out.answer || out.check;
         if (!value) return;
