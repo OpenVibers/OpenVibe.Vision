@@ -86,11 +86,13 @@ function renderPage(o) {
         head: `<meta name="referrer" content="strict-origin-when-cross-origin">
 ${appIcon.headTags({ site: 'vision' })}
 <link rel="stylesheet" href="${ovServe.url('kit.css')}">
+<link rel="stylesheet" href="${ovServe.url('kit-data.css')}">
 <link rel="stylesheet" href="${ovServe.url('room.css')}">
 <link rel="stylesheet" href="${ovServe.url('showcase.css')}">
 <link rel="stylesheet" href="${asset('css/vision.css')}">
 <script src="${ovServe.url('motion.js')}" defer></script>
 <script src="${ovServe.url('kit-web.js')}" defer></script>
+<script src="${ovServe.url('kit-data-web.js')}" defer></script>
 ${render(scripts)}
 <meta name="ov-boost" content="vision@${require('./html').esc(RELEASE)}">
 <script src="${require('openvibe-shared/serve').url('boost.js')}" data-main="#main" defer></script>`,
