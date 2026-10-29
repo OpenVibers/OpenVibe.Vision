@@ -2,7 +2,7 @@
 
 /**
  * The Vision room's pages (plan 2026-10-28 §5.8). Server-rendered and whole without JavaScript: every action is
- * a plain form or link. public/css/vision.css and public/js/vision.js are one-comment placeholders the main
+ * a plain form or link. public/css/vision.css is the site's own stylesheet; the kit (kit.css, kit-web.js) does the rest, and the main
  * session replaces; the forms and results work without them. Ids and classes start with `vi-`.
  */
 const { esc, time } = require('../render/html');

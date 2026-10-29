@@ -7,7 +7,7 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .skip:focus { left: 12px; top: 12px; z-index: 99; padding: 8px 12px; border-radius: 10px; background: var(--bg-card, #0f1729); color: inherit; }
 .vi { display: block; }
 .vi a { color: var(--room-strong); }
-.vi .ovk-i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:where(.vi) .ovk-i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .vi-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 64px; }
 .vi-narrow { max-width: 620px; }
 .vi-page-pad { padding-top: clamp(28px, 6vw, 64px); }
