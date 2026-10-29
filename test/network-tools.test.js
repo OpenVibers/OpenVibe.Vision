@@ -23,7 +23,7 @@ const { parseReceipt } = require('../server/vision/network-tools');
             const theirs = await t.get('/api/v1/find?q=bike', { as: other });
             assert.strictEqual(theirs.status, 200);
             assert.deepStrictEqual(theirs.json().answer.results, []);
-            const svc = t.network.serviceToken({ sub: 'svc:media', cap: ['vision.find'] });
+            const svc = t.network.serviceToken({ sub: 'svc:media', cap: ['vision.media.find'] });
             assert.strictEqual((await t.get('/api/v1/find?q=bike', { bearer: svc })).status, 403);
             const byImage = await t.get('/api/v1/find', { as: owner, json: { image } });
             assert.strictEqual(byImage.json().answer.results[0].item_id, 'photo-1');
@@ -54,7 +54,7 @@ const { parseReceipt } = require('../server/vision/network-tools');
             assert.strictEqual(m.status, 201, m.text);
             assert.ok(m.json().answer.receipt);
             assert.strictEqual(m.json().answer.candidate_moments[0].timestamp_ms, 1000);
-            const svc = t.network.serviceToken({ sub: 'svc:cam', cap: ['vision.watch'] });
+            const svc = t.network.serviceToken({ sub: 'svc:cam', cap: ['vision.camera.watch'] });
             assert.strictEqual((await t.get('/api/v1/watch', { bearer: svc, json: { image, classes: ['cat'] } })).status, 403);
         });
         await check('product has embedding and receipt even if offer APIs are not configured', async () => {

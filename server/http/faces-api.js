@@ -38,8 +38,8 @@ function createFaceApi({ config, principal, faces, fetchImpl }) {
         standardHeaders: true, legacyHeaders: false,
         handler: (req, res) => problem(res, 429, 'vision.rate_limited', 'too many face privacy requests from this address; retry shortly'),
     });
-    r.post('/detect', privacyLimit, imageField, run(async (req) => faces.detect((await image(req)).buffer)));
-    r.post('/blur', privacyLimit, imageField, async (req, res) => {
+    r.post('/detect', privacyLimit, principal.optional('vision.face.detect', { allowAnonymous: true }), imageField, run(async (req) => faces.detect((await image(req)).buffer)));
+    r.post('/blur', privacyLimit, principal.optional('vision.face.blur', { allowAnonymous: true }), imageField, async (req, res) => {
         try {
             const out = await faces.blur((await image(req)).buffer);
             res.set('X-Faces-Blurred', String(out.count));

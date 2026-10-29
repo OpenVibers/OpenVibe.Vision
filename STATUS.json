@@ -17,17 +17,26 @@
     "openvibe-shared v4.41.0"
   ],
   "capabilities": [
-    "vision.ask",
-    "vision.ocr",
-    "vision.compare",
+    "vision.image.ask",
+    "vision.text.read",
+    "vision.model.compare",
     "vision.ui.check",
     "vision.face.cast.match",
-    "vision.alt",
-    "vision.find",
-    "vision.receipt",
-    "vision.product",
-    "vision.watch",
-    "vision.moments"
+    "vision.alt.write",
+    "vision.media.find",
+    "vision.receipt.read",
+    "vision.product.match",
+    "vision.camera.watch",
+    "vision.video.moments",
+    "vision.face.detect",
+    "vision.face.blur",
+    "vision.face.consent.manage",
+    "vision.face.verify.self",
+    "vision.face.find.self",
+    "vision.face.library",
+    "vision.face.cast.read",
+    "vision.models.read",
+    "vision.benchmarks.read"
   ],
   "outboundCapabilities": [
     "ai.run.create"
@@ -46,6 +55,8 @@
     "Consent-scoped SFace matching: verify (1:1), self search in own Vision uploads, adult cast rosters and region-gated private library grouping",
     "Encrypted face templates, opt-in uploads and vectors (AES-256-GCM); immediate template/tag erasure on opt-out and a daily three-year retention job",
     "Network tools: routed alt text, owner-scoped CLIP index/find, Tesseract-first receipts, product vectors, DETR watch and moments, each with a receipt",
+    "MCP on /mcp with RFC 9728 protected-resource metadata, token challenges and route-equivalent capability checks",
+    "vision.result.ready and vision.alert published through OpenVibe.Events when configured",
     "Answers, compare samples, private index and UI checks stored without image bytes; account export/deletion over every table including faces and the private index",
     "Network sign-in as OAuth client vision (PKCE S256, vision_at/vision_rt/vision_oauth), truthful readiness, loopback metrics",
     "Server-rendered pages with stable vi- ids/classes, discovery artifacts, deploy unit and nginx vhost, CI"

@@ -8,7 +8,7 @@
  *   POST /ocr                    the local Tesseract reader; `fallback=1` asks AI only when it finds no text
  *   POST /compare                local OCR vs one or more AI model hints, side by side, with cost and latency
  *   POST /ui-check               overflow, cut-off, contrast, overlap and layering faults from html, url or image
- *   GET  /answers/:id            one saved answer (its owner, or a service holding vision.ask)
+ *   GET  /answers/:id            one saved answer (its owner, or a service holding vision.image.ask)
  *   GET  /ui-checks/:id          one saved UI check (its owner, or a service holding vision.ui.check)
  *   GET  /models                 the AI route's offered provider:model hints (no subject data)
  *   GET  /benchmarks             aggregate compare samples: model, task, samples, mean latency and cost
@@ -25,7 +25,7 @@ const { loadImage } = require('../vision/images');
 const { VisionError } = require('../vision/service');
 
 function createApi(ctx) {
-    const { config, s, principal, store, vision, ai, ocr, fetchImpl, networkTools, models: localModels } = ctx;
+    const { config, s, principal, store, vision, ai, ocr, fetchImpl, networkTools, models: localModels, eventPublisher } = ctx;
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
 
@@ -94,6 +94,8 @@ function createApi(ctx) {
     async function run(res, fn, status = 200) {
         try {
             const out = await fn();
+            await eventPublisher.result(res.req, out);
+            await eventPublisher.alert(res.req, out);
             return res.status(status).json(out);
         } catch (err) {
             if (err instanceof VisionError) {
@@ -116,27 +118,27 @@ function createApi(ctx) {
     const owner = (req) => req.principal.subject;
     const noRemoteSource = (req, res, next) => bodyOf(req).image_url ? invalid(res, 'private tools accept uploaded bytes or a data URL, not an unverified source URL') : next();
 
-    r.post('/alt', principal.requireCapability('vision.alt'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.alt(await imageOf(req)) }), 201));
-    r.post('/index', principal.requireCapability('vision.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
+    r.post('/alt', principal.requireCapability('vision.alt.write'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.alt(await imageOf(req)) }), 201));
+    r.post('/index', principal.requireCapability('vision.media.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
         const b = bodyOf(req);
         return { answer: await networkTools.index(owner(req), b.item_id, await imageOf(req), b.result_url) };
     }, 201));
-    r.get('/find', principal.requireCapability('vision.find'), ownerOnly, (req, res) => run(res, async () => {
+    r.get('/find', principal.requireCapability('vision.media.find'), ownerOnly, (req, res) => run(res, async () => {
         const q = String(req.query.q || '').trim();
         if (!q || q.length > 500) throw new VisionError(400, 'vision.invalid_query', 'q must contain 1–500 characters');
         return { answer: await networkTools.find(owner(req), q) };
     }));
-    r.post('/find', principal.requireCapability('vision.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => ({ answer: await networkTools.find(owner(req), await imageOf(req)) })));
-    r.post('/receipt', principal.requireCapability('vision.receipt'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.readReceipt(await imageOf(req), bodyOf(req).fallback === true || bodyOf(req).fallback === 'true') }), 201));
-    r.post('/product', principal.requireCapability('vision.product'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.product(await imageOf(req), bodyOf(req).allow_rerank === true || bodyOf(req).allow_rerank === 'true') }), 201));
-    r.post('/watch', principal.requireCapability('vision.watch'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
+    r.post('/find', principal.requireCapability('vision.media.find'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => ({ answer: await networkTools.find(owner(req), await imageOf(req)) })));
+    r.post('/receipt', principal.requireCapability('vision.receipt.read'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.readReceipt(await imageOf(req), bodyOf(req).fallback === true || bodyOf(req).fallback === 'true') }), 201));
+    r.post('/product', principal.requireCapability('vision.product.match'), attachUpload, (req, res) => run(res, async () => ({ answer: await networkTools.product(await imageOf(req), bodyOf(req).allow_rerank === true || bodyOf(req).allow_rerank === 'true') }), 201));
+    r.post('/watch', principal.requireCapability('vision.camera.watch'), ownerOnly, attachUpload, noRemoteSource, (req, res) => run(res, async () => {
         const b = bodyOf(req);
         const classes = Array.isArray(b.classes) ? b.classes : String(b.classes || '').split(',').map((x) => x.trim()).filter(Boolean);
         if (!classes.length || classes.length > 20) throw new VisionError(400, 'vision.invalid_classes', 'send 1–20 watched classes');
         const previous = b.previous_image ? await loadImage({ image: b.previous_image, config, fetchImpl }) : null;
         return { answer: await networkTools.watch(await imageOf(req), classes, previous) };
     }, 201));
-    r.post('/moments', principal.requireCapability('vision.moments'), ownerOnly, (req, res) => run(res, async () => {
+    r.post('/moments', principal.requireCapability('vision.video.moments'), ownerOnly, (req, res) => run(res, async () => {
         const b = bodyOf(req);
         if (!Array.isArray(b.frames) || b.frames.length < 1 || b.frames.length > 30) throw new VisionError(400, 'vision.invalid_frames', 'send 1–30 timestamped frames');
         const frames = [];
@@ -150,10 +152,10 @@ function createApi(ctx) {
     }, 201));
 
     // ── OCR: local first, anonymous local calls allowed ─────
-    r.post('/ocr', attachUpload, principal.optional('vision.ocr', { allowAnonymous: true }), async (req, res) => {
+    r.post('/ocr', attachUpload, principal.optional('vision.text.read', { allowAnonymous: true }), async (req, res) => {
         const b = bodyOf(req);
         const fallback = b.fallback === true || b.fallback === '1' || b.fallback === 'true';
-        if (req.principal.kind === 'anonymous' && fallback) return problem(res, 401, 'token.required', 'AI fallback needs a signed-in person or a service token holding vision.ocr');
+        if (req.principal.kind === 'anonymous' && fallback) return problem(res, 401, 'token.required', 'AI fallback needs a signed-in person or a service token holding vision.text.read');
         return run(res, async () => {
             const image = await imageOf(req);
             return await vision.ocr({
@@ -172,7 +174,7 @@ function createApi(ctx) {
         const question = String(b.question || b.q || '').trim();
         const readish = vision.isReadTask(task, question);
         if (req.principal.kind === 'anonymous' && mode !== 'local' && !readish) {
-            return problem(res, 401, 'token.required', 'Ask needs a signed-in person or a service token holding vision.ask; anonymous callers can use mode=local or a read question that the local OCR engine answers.');
+            return problem(res, 401, 'token.required', 'Ask needs a signed-in person or a service token holding vision.image.ask; anonymous callers can use mode=local or a read question that the local OCR engine answers.');
         }
         return run(res, async () => {
             const image = await imageOf(req);
@@ -183,11 +185,11 @@ function createApi(ctx) {
             return { answer: out };
         }, 201);
     };
-    r.post('/ask', attachUpload, principal.optional('vision.ask', { allowAnonymous: true }), askHandler('ask'));
-    r.post('/describe', attachUpload, principal.optional('vision.ask', { allowAnonymous: true }), askHandler('describe'));
+    r.post('/ask', attachUpload, principal.optional('vision.image.ask', { allowAnonymous: true }), askHandler('ask'));
+    r.post('/describe', attachUpload, principal.optional('vision.image.ask', { allowAnonymous: true }), askHandler('describe'));
 
     // ── Compare: local + AI hints, side by side ────────────
-    r.post('/compare', principal.optional('vision.compare'), attachUpload, async (req, res) => {
+    r.post('/compare', principal.optional('vision.model.compare'), attachUpload, async (req, res) => {
         const b = bodyOf(req);
         const models = Array.isArray(b.models) ? b.models : (typeof b.models === 'string' && b.models.trim() ? b.models.split(',').map((x) => x.trim()) : []);
         return run(res, async () => {
@@ -229,7 +231,7 @@ function createApi(ctx) {
     });
 
     // ── Reads ──────────────────────────────────────────────
-    r.get('/answers/:id', principal.optional('vision.ask', { allowAnonymous: true }), async (req, res) => {
+    r.get('/answers/:id', principal.optional('vision.image.ask', { allowAnonymous: true }), async (req, res) => {
         const row = await store.answerById(String(req.params.id || ''));
         if (!row) return problem(res, 404, 'vision.not_found', 'No such answer.');
         const owner = await store.answerSubject(row.id);
@@ -253,7 +255,7 @@ function createApi(ctx) {
 
     // ── Model hints and benchmarks (no subject data) ───────
     let modelCache = null;
-    r.get('/models', async (_req, res) => {
+    r.get('/models', principal.optional('vision.models.read', { allowAnonymous: true }), async (_req, res) => {
         if (!modelCache || Date.now() - modelCache.at > 5 * 60_000) {
             const offered = ai.enabled ? await ai.offeredModels().catch(() => []) : [];
             modelCache = { at: Date.now(), offered };
@@ -268,7 +270,7 @@ function createApi(ctx) {
         });
     });
 
-    r.get('/benchmarks', async (req, res) => {
+    r.get('/benchmarks', principal.optional('vision.benchmarks.read', { allowAnonymous: true }), async (req, res) => {
         const task = typeof req.query.task === 'string' && req.query.task ? req.query.task : null;
         const limit = req.query.limit == null ? 50 : Number.parseInt(req.query.limit, 10);
         if (!Number.isFinite(limit) || limit < 1 || limit > 100) return invalid(res, 'limit must be from 1 to 100');

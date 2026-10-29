@@ -103,7 +103,7 @@ function createFaces({ s, config, model }) {
     async function template(subject, feature, scope = '') {
         requireKey(); await requireConsent(subject, feature, scope);
         const row = await db.maybe('SELECT ciphertext FROM face_templates WHERE subject=$1 AND feature=$2 AND scope=$3', [subject, feature, scope]);
-        if (!row) deny('enrolment_required', `Enrol in ${feature} first.`);
+        if (!row) deny('consent_required', `Enable ${feature} consent first.`);
         return open(key, row.ciphertext);
     }
     async function touch(subject, feature, scope = '') {

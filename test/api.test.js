@@ -101,14 +101,14 @@ const { boot, check, done } = require('./helpers/boot');
             const good = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.ui.check'] });
             const ok = await t.get('/api/v1/ui-check', { bearer: good, json: { html: '<div style="width:900px">x</div>', viewport: { w: 390, h: 844 } } });
             assert.strictEqual(ok.status, 201, ok.text);
-            const bad = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.ask'] });
+            const bad = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.image.ask'] });
             const no = await t.get('/api/v1/ui-check', { bearer: bad, json: { html: '<p>x</p>' } });
             assert.strictEqual(no.status, 403);
             assert.strictEqual(no.json().code, 'capability.denied');
         });
 
         await check('a service token with vision.ask can ask; the answer has no subject', async () => {
-            const tok = t.network.serviceToken({ sub: 'svc:today', cap: ['vision.ask'] });
+            const tok = t.network.serviceToken({ sub: 'svc:today', cap: ['vision.image.ask'] });
             const r = await t.get('/api/v1/ask', { bearer: tok, multipart: { fields: { task: 'describe', question: 'What is this?' }, image: png } });
             assert.strictEqual(r.status, 201, r.text);
             assert.strictEqual(r.json().answer.answer.engine, 'ai');
@@ -122,7 +122,7 @@ const { boot, check, done } = require('./helpers/boot');
             const id = r.json().answer.id;
             assert.strictEqual((await t.get(`/api/v1/answers/${id}`, { as: user })).status, 200);
             assert.strictEqual((await t.get(`/api/v1/answers/${id}`, { as: other })).status, 404);
-            const tok = t.network.serviceToken({ sub: 'svc:today', cap: ['vision.ask'] });
+            const tok = t.network.serviceToken({ sub: 'svc:today', cap: ['vision.image.ask'] });
             assert.strictEqual((await t.get(`/api/v1/answers/${id}`, { bearer: tok })).status, 200);
         });
 

@@ -241,16 +241,16 @@ function developers({ ai = false, models = [] } = {}) {
 <header class="vi-page-h"><p class="vi-kicker">Developers</p><h1>The Vision API</h1>
 <p class="vi-lede">JSON under <code>/api/v1</code>, with <code>application/problem+json</code> errors. A person is the <code>vision_at</code> session cookie or a Network user token as a Bearer. A service token needs the capability on the route; Design's Arena calls the UI check with <code>vision.ui.check</code>.</p></header>
 <section><h2>Ask, read, compare</h2><dl class="vi-eps">
-${ep('POST', '/api/v1/ask (alias /api/v1/describe)', 'One image and a question: <code>{ task, question, mode, image_url }</code>, a multipart <code>image</code>, or an <code>image</code> data URL. Local OCR answers a read question first, otherwise OpenVibe.AI. Capability: <code>vision.ask</code>.')}
-${ep('POST', '/api/v1/ocr', 'The local Tesseract reader. <code>fallback=1</code> asks AI only when no text is found and the caller is signed in or holds <code>vision.ocr</code>.')}
-${ep('POST', '/api/v1/compare', 'The same image through local OCR and one to three AI hints (<code>models</code>). Returns each engine\'s answer, provider, model, cost and latency. Capability: <code>vision.compare</code>.')}
+${ep('POST', '/api/v1/ask (alias /api/v1/describe)', 'One image and a question: <code>{ task, question, mode, image_url }</code>, a multipart <code>image</code>, or an <code>image</code> data URL. Local OCR answers a read question first, otherwise OpenVibe.AI. Capability: <code>vision.image.ask</code>.')}
+${ep('POST', '/api/v1/ocr', 'The local Tesseract reader. <code>fallback=1</code> asks AI only when no text is found and the caller is signed in or holds <code>vision.text.read</code>.')}
+${ep('POST', '/api/v1/compare', 'The same image through local OCR and one to three AI hints (<code>models</code>). Returns each engine\'s answer, provider, model, cost and latency. Capability: <code>vision.model.compare</code>.')}
 ${ep('POST', '/api/v1/ui-check', 'HTML, URL or screenshot with <code>viewport</code>. Returns <code>findings</code>: overflow, cut_off, contrast, overlap and layering. Capability: <code>vision.ui.check</code>.')}
-${ep('POST', '/api/v1/alt', 'Pics, Media and Chat send an image for short editable alt text. Capability: <code>vision.alt</code>.')}
-${ep('POST', '/api/v1/index; GET or POST /api/v1/find', 'Media and Search index an owner image and find it by words or image. Requires the owner user token. Capability: <code>vision.find</code>.')}
-${ep('POST', '/api/v1/receipt', 'Food sends a receipt image; Tesseract reads store, items and total first. Capability: <code>vision.receipt</code>.')}
-${ep('POST', '/api/v1/product', 'Deals sends a product image for description, CLIP vector and configured offer candidates. Capability: <code>vision.product</code>.')}
-${ep('POST', '/api/v1/watch', 'Cam sends an owner-provided still and watched classes. Requires the owner user token. Capability: <code>vision.watch</code>.')}
-${ep('POST', '/api/v1/moments', 'Live or Media sends timestamped frames for scenes and candidate moments. Requires the owner user token. Capability: <code>vision.moments</code>.')}
+${ep('POST', '/api/v1/alt', 'Pics, Media and Chat send an image for short editable alt text. Capability: <code>vision.alt.write</code>.')}
+${ep('POST', '/api/v1/index; GET or POST /api/v1/find', 'Media and Search index an owner image and find it by words or image. Requires the owner user token. Capability: <code>vision.media.find</code>.')}
+${ep('POST', '/api/v1/receipt', 'Food sends a receipt image; Tesseract reads store, items and total first. Capability: <code>vision.receipt.read</code>.')}
+${ep('POST', '/api/v1/product', 'Deals sends a product image for description, CLIP vector and configured offer candidates. Capability: <code>vision.product.match</code>.')}
+${ep('POST', '/api/v1/watch', 'Cam sends an owner-provided still and watched classes. Requires the owner user token. Capability: <code>vision.camera.watch</code>.')}
+${ep('POST', '/api/v1/moments', 'Live or Media sends timestamped frames for scenes and candidate moments. Requires the owner user token. Capability: <code>vision.video.moments</code>.')}
 ${ep('GET', '/api/v1/answers/:id', 'One saved answer, for its owner or a service holding the route capability.')}
 ${ep('GET', '/api/v1/ui-checks/:id', 'One saved UI check, for its owner or a service holding <code>vision.ui.check</code>.')}
 ${ep('GET', '/api/v1/models', 'The AI route\'s offered provider:model hints and the local engine. No subject data.')}
@@ -272,7 +272,7 @@ ${ep('POST', '/api/v1/faces/library/correct', 'A person\'s own group correction:
 </dl>
 <p class="vi-fine"><a href="/people">Manage choices</a> · <a href="/people/privacy">Retention and privacy</a></p></section>
 <section id="vi-capabilities"><h2>Capabilities and grants</h2>
-<p class="vi-fine">Vision needs no new AI capability: outgoing calls are <code>ai.run.create</code> to OpenVibe.AI, audience <code>openvibe.ai</code>, namespace <code>ai.*</code>. The capabilities Vision offers are <code>vision.ask</code>, <code>vision.ocr</code>, <code>vision.compare</code>, <code>vision.ui.check</code> and <code>vision.face.cast.match</code>; the main session registers the manifests and grants them to Design (the Arena), Live (the cast roster) and any other caller.</p>
+<p class="vi-fine">Vision calls OpenVibe.AI with <code>ai.run.create</code>, audience <code>openvibe.ai</code> and namespace <code>ai.*</code>. The twenty Vision capability manifests cover image questions, text, comparison, UI checks, network tools and consent-scoped face operations. A service token needs the capability named on its route; a person manages only their own face consent. Vision also offers eleven tools on <code>/mcp</code>, with Network token discovery at <code>/.well-known/oauth-protected-resource</code>.</p>
 <pre class="vi-code">POST /api/v1/ui-check
 Authorization: Bearer &lt;Network service token for openvibe.vision&gt;
 Content-Type: application/json
