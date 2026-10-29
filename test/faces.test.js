@@ -135,6 +135,10 @@ function liveToken(t, channel) {
             assert.strictEqual(row.signature, 'Test Person');
             assert.strictEqual(row.revoked_at, null);
             assert.ok(Date.parse(row.granted_at));
+            const waitingForEnrolment = await t.get('/api/v1/faces/verify', { as: ana, multipart: { image: png } });
+            assert.strictEqual(waitingForEnrolment.status, 403);
+            assert.strictEqual(waitingForEnrolment.json().code, 'faces.consent_required');
+            assert.strictEqual(waitingForEnrolment.json().detail, 'Enable verify consent first.');
 
             assert.strictEqual((await consent(ana, 'find')).status, 200);
             assert.strictEqual((await consent(ana, 'cast', { channel: 'live:one', adult: true })).status, 200);

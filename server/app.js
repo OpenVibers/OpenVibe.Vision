@@ -29,6 +29,7 @@ const { createSso } = require('./auth/sso');
 const { createPrincipal } = require('./http/principal');
 const { createApi } = require('./http/api');
 const { createFaceApi } = require('./http/faces-api');
+const { mcpRouter } = require('./http/mcp');
 const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { assetVersion, send } = require('./render/layout');
@@ -42,6 +43,7 @@ const { createVision } = require('./vision/service');
 const { createFacesModel } = require('./vision/faces-model');
 const { createFaces } = require('./vision/faces');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
+const { createPublisher } = require('./events/publisher');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const VERSION = require('../package.json').version;
@@ -77,7 +79,8 @@ async function createApp(opts = {}) {
         ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret, fetch: fetchImpl })
         : async () => { throw new Error('OV_OAUTH_CLIENT_SECRET is not set: Vision cannot answer account events'); });
 
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, log, fetchImpl };
+    const eventPublisher = opts.eventPublisher || createPublisher({ config, fetchImpl, log });
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, eventPublisher, log, fetchImpl };
 
     const app = express();
     app.disable('x-powered-by');
@@ -153,6 +156,7 @@ async function createApp(opts = {}) {
     }));
 
     // ── API ─────────────────────────────────────────────────
+    app.use(mcpRouter(ctx));
     app.use('/api/v1', rateLimit({ windowMs: 60_000, limit: Number(process.env.VISION_API_RATE_LIMIT_PER_MIN) || 120, standardHeaders: true, legacyHeaders: false, handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }) }));
     app.use('/api/v1/faces', createFaceApi(ctx));
     app.use('/api/v1', createApi(ctx));

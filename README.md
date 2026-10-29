@@ -92,25 +92,42 @@ General answer tables store no image bytes, token or provider key. The opt-in fa
 
 ## Capabilities and grants
 
-The service offers eleven capabilities. The main session registers their manifests and grants them; v1 checks the
-grant list directly, so a token that already carries one works.
+Contracts 0.240.0 registers twenty Vision capabilities. The service checks each machine token's grant on its route;
+private media and face identity operations also require the verified owner or the person's purpose-scoped consent.
 
 | Capability | Routes | Typical caller |
 |---|---|---|
-| `vision.ask` | `POST /api/v1/ask`, `GET /api/v1/answers/:id` | a first-party service or a person |
-| `vision.ocr` | `POST /api/v1/ocr` (the AI fallback also needs a person or this grant) | a first-party service or a person |
-| `vision.compare` | `POST /api/v1/compare` | a first-party service or a person |
+| `vision.image.ask` | `POST /api/v1/ask`, `GET /api/v1/answers/:id` | a first-party service or a person |
+| `vision.text.read` | `POST /api/v1/ocr` (the AI fallback also needs a person or this grant) | a first-party service or a person |
+| `vision.model.compare` | `POST /api/v1/compare` | a first-party service or a person |
 | `vision.ui.check` | `POST /api/v1/ui-check`, `GET /api/v1/ui-checks/:id` | **OpenVibe.Design's Arena**, or a person |
 | `vision.face.cast.match` | `POST /api/v1/faces/cast/match` (a signed `channel_id` claim must match the request) | **OpenVibe.Live**, or a person inspecting their own tags |
-| `vision.alt` | `POST /api/v1/alt` | Pics, Media and Chat |
-| `vision.find` | `POST /api/v1/index`, `GET`/`POST /api/v1/find` (owner user token) | Media and Search |
-| `vision.receipt` | `POST /api/v1/receipt` | Food |
-| `vision.product` | `POST /api/v1/product` | Deals |
-| `vision.watch` | `POST /api/v1/watch` (owner user token) | Cam |
-| `vision.moments` | `POST /api/v1/moments` (owner user token) | Live and Media |
+| `vision.alt.write` | `POST /api/v1/alt` | Pics, Media and Chat |
+| `vision.media.find` | `POST /api/v1/index`, `GET`/`POST /api/v1/find` (owner user token) | Media and Search |
+| `vision.receipt.read` | `POST /api/v1/receipt` | Food |
+| `vision.product.match` | `POST /api/v1/product` | Deals |
+| `vision.camera.watch` | `POST /api/v1/watch` (owner user token) | Cam |
+| `vision.video.moments` | `POST /api/v1/moments` (owner user token) | Live and Media |
+| `vision.face.detect`, `vision.face.blur` | `POST /api/v1/faces/detect`, `/blur` | Public privacy tools; a service token needs the matching grant |
+| `vision.face.consent.manage`, `vision.face.verify.self`, `vision.face.find.self`, `vision.face.library`, `vision.face.cast.read` | `/api/v1/faces/*` | The person themselves, with separate signed consent for each matching purpose |
+| `vision.models.read`, `vision.benchmarks.read` | `GET /api/v1/models`, `/benchmarks` | Public reads; a service token needs the matching grant |
 
 Outgoing: **`ai.run.create`** to OpenVibe.AI (audience `openvibe.ai`, namespace `ai.*`), minted by Network for the
 client `vision`. No new AI capability, no provider key, no direct paid provider.
+
+## MCP and events
+
+`POST /mcp` serves Streamable HTTP JSON-RPC 2.0 (`initialize`, `ping`, `tools/list`, `tools/call`).
+`/.well-known/oauth-protected-resource` advertises its Network authorization server; a private tool without a
+token responds with a `WWW-Authenticate` challenge pointing to that metadata. The tools are `vision.ask_image`,
+`vision.read_text`, `vision.translate_sign`, `vision.find_similar`, `vision.search_my_media`,
+`vision.describe_clip`, `vision.detect_objects`, `vision.blur_faces`, `vision.check_ui`,
+`vision.compare_models` and `vision.get_job`. Face enrolment, verification, cast matching and consent mutation
+are available only through their person or Live-specific API routes, never through MCP.
+
+When configured with Events and a Network client secret, successful owner results publish `vision.result.ready`
+with provenance, cost and retention, without image or answer text. A watch result with `source_ref` and detections
+publishes `vision.alert` with classes and confidence. Publishing failures are logged without exposing payloads.
 
 ## API
 
@@ -125,7 +142,7 @@ must hold the route's capability (403 `capability.denied`).
 | `POST /api/v1/ocr` | multipart/data URL/URL; `{ fallback?, lang?, model? }`; returns the OCR row with `text`, `answer.confidence`, `answer.words`, cost 0. |
 | `POST /api/v1/compare` | `{ task?, question?, models?: string[] }` plus an image; returns `{ answer, compare }`, one row per engine. |
 | `POST /api/v1/ui-check` | `{ html }`, `{ url }`, or a screenshot plus `{ viewport: { w, h } }`; returns `{ check }` with `findings`, `counts`, `severity`, `warnings`. |
-| `GET /api/v1/answers/:id` | one saved answer: its owner, or a service holding `vision.ask`. |
+| `GET /api/v1/answers/:id` | one saved answer: its owner, or a service holding `vision.image.ask`. |
 | `GET /api/v1/ui-checks/:id` | one saved UI check: its owner, or a service holding `vision.ui.check`. |
 | `GET /api/v1/models` | AI's offered `provider:model` hints and the local engine. No subject data. |
 | `GET /api/v1/benchmarks?task=&limit=` | aggregate compare samples: task, engine, provider, model, samples, mean latency, mean cost. No subject or answer text. |
@@ -156,7 +173,7 @@ Answer (abridged):
 
 Validation refusals: `vision.invalid`, `vision.invalid_task`, `vision.invalid_mode`, `vision.question_required`,
 `vision.image_required`, `vision.image_too_large`, `vision.image_private_url`, `vision.image_unsupported`,
-`vision.ocr_unavailable`, `vision.ai_unavailable`, `vision.not_found`, `vision.rate_limited`, and the face codes
+`vision.text.read_unavailable`, `vision.ai_unavailable`, `vision.not_found`, `vision.rate_limited`, and the face codes
 `faces.consent_required`, `faces.signature_required`, `faces.adult_required`, `faces.region_disabled`,
 `faces.enrolment_required`, `faces.one_face_required`, `faces.model_unavailable`, `faces.key_unavailable`,
 `faces.live_grant_required`.
@@ -229,12 +246,12 @@ All six tools are JSON APIs. Successful `answer` objects carry a `receipt` with 
 
 | Room call | Capability | Notes |
 |---|---|---|
-| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
-| Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
-| Food → `POST /api/v1/receipt` | `vision.receipt` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
-| Deals → `POST /api/v1/product` | `vision.product` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
-| Cam → `POST /api/v1/watch` | `vision.watch` | Owner's verified user token; upload still and `classes` array; optional `previous_image` data URL for scene change. |
-| Live, Media → `POST /api/v1/moments` | `vision.moments` | Owner's verified user token; `{frames:[{timestamp_ms,image|image_url}],prompts?}`. Scene histogram and CLIP prompt matching. |
+| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt.write` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
+| Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.media.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
+| Food → `POST /api/v1/receipt` | `vision.receipt.read` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
+| Deals → `POST /api/v1/product` | `vision.product.match` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
+| Cam → `POST /api/v1/watch` | `vision.camera.watch` | Owner's verified user token; upload still and `classes` array; optional `previous_image` data URL for scene change. |
+| Live, Media → `POST /api/v1/moments` | `vision.video.moments` | Owner's verified user token; `{frames:[{timestamp_ms,image|image_url}],prompts?}`. Scene histogram and CLIP prompt matching. |
 
 For private index, watch and moments, a service capability alone does not assert a source owner's grant. The room should call with the owner's delegated Network user token. Private index and watch reject `image_url`; the owner must supply bytes or a data URL. Moments accepts public frame URLs under Vision's existing guarded image fetch, or frame data URLs. The room that opens a returned `result_url` must check its own source grant again.
 

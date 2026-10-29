@@ -2,6 +2,15 @@
 
 What changed in OpenVibe.Vision, newest first.
 
+## Unreleased — VIS-5
+
+- Added a Streamable HTTP MCP endpoint with eleven tools, protected-resource metadata, token challenges and the
+  same permission boundaries as the JSON API. Face identity and consent mutation remain person-only API flows.
+- Aligned service-token checks with the twenty capability IDs in Contracts 0.240.0. Anonymous local and privacy
+  tools remain open. Verification gives the same refusal before and after consent until enrollment is complete.
+- Publishes `vision.result.ready` and `vision.alert` through OpenVibe.Events when Events is configured. Event
+  payloads contain provenance and class names, never image bytes, answer text or face templates.
+
 ## 0.1.0 — 2026-10-28
 
 The first version: see with the best model for the job.
