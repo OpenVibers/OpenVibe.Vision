@@ -8,12 +8,12 @@
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9, Tesseract 5, sharp, onnxruntime-node (YuNet/SFace), Transformers.js (CLIP/DETR)",
   "port": "5130",
   "domain": "openvibe.vision",
-  "contracts": "openvibe-contracts v0.235.0",
-  "sdk": "openvibe-sdk v0.70.0",
+  "contracts": "openvibe-contracts v0.240.0",
+  "sdk": "openvibe-sdk v0.72.0",
   "shared": "openvibe-shared v4.41.0",
   "packages": [
-    "openvibe-contracts v0.235.0",
-    "openvibe-sdk v0.70.0",
+    "openvibe-contracts v0.240.0",
+    "openvibe-sdk v0.72.0",
     "openvibe-shared v4.41.0"
   ],
   "capabilities": [
