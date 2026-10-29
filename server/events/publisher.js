@@ -1,23 +1,28 @@
 'use strict';
 
-const { createClient } = require('openvibe-sdk/core');
-const { createServiceTokenClient } = require('openvibe-sdk/auth');
-const { createEventsClient } = require('openvibe-sdk/events');
-
+/**
+ * Vision → OpenVibe.Events (contracts 0.240.0): the events Vision publishes.
+ *
+ *   vision.result.ready   a visual result is ready for its owner or caller (never the answer text, never an image)
+ *   vision.alert          an owner-granted camera alert (a watched source saw something)
+ *
+ * The envelope goes into Vision's own outbox (server/events/outbox.js) and the relay sends it, so a publish
+ * that fails because Events is down or the network blipped is not lost: the row waits in the table and goes out
+ * with the next drain, the event's own id as the idempotency key. Publishing is never on the request's
+ * critical path.
+ */
 const TASKS = Object.freeze({
     '/ask': 'ask', '/describe': 'describe', '/ocr': 'ocr', '/compare': 'compare', '/alt': 'alt',
     '/find': 'find', '/receipt': 'receipt', '/product': 'product', '/watch': 'watch',
     '/moments': 'moments', '/ui-check': 'ui_check',
 });
 
-function createPublisher({ config, fetchImpl = globalThis.fetch, log = console } = {}) {
-    if (config.drill || !config.events.url || !config.oauth.clientSecret) return { result: async () => {}, alert: async () => {} };
-    const tokenProvider = createServiceTokenClient({
-        tokenUrl: `${config.networkInternalUrl}/oauth/token`, clientId: config.oauth.clientId,
-        clientSecret: config.oauth.clientSecret, audience: 'openvibe.events', scope: config.events.scope, fetch: fetchImpl,
-    });
-    const client = createClient({ baseUrls: { events: config.events.url }, tokenProvider, fetch: fetchImpl, retries: 1 });
-    const events = createEventsClient(client, { source: 'vision' });
+/**
+ * The publisher: result(req, out) and alert(req, out) write one envelope each into the outbox.
+ * The outbox (Vision's own, server/events/outbox.js) owns the relay, the event id and the retry.
+ */
+function createPublisher({ outbox, log = console } = {}) {
+    if (!outbox || typeof outbox.emit !== 'function') throw new TypeError('createPublisher: the Vision event outbox is required');
 
     function subject(req) {
         const p = req.principal;
@@ -27,10 +32,18 @@ function createPublisher({ config, fetchImpl = globalThis.fetch, log = console }
     }
     async function publish(req, type, payload) {
         const ref = subject(req);
-        if (!ref) return;
+        if (!ref) return null;
         try {
-            await events.publish({ event_type: type, actor: ref, subject: ref, visibility: ref.type === 'user' ? 'subject' : 'internal', priority: 'important', payload }, { traceparent: req.ov && req.ov.traceparent });
-        } catch (err) { log.warn('[OpenVibe.Vision] event publish failed:', String(err && err.message || err).slice(0, 180)); }
+            return await outbox.emit(
+                { event_type: type, actor: ref, subject: ref, visibility: ref.type === 'user' ? 'subject' : 'internal', priority: 'important', payload },
+                { traceparent: req.ov && req.ov.traceparent },
+            );
+        } catch (err) {
+            // The row could not be written (the database is unhappy, the envelope broke a contract): say so,
+            // but never fail the person's request over an event.
+            log.warn('[OpenVibe.Vision] event outbox write failed:', String((err && err.message) || err).slice(0, 180));
+            return null;
+        }
     }
     async function result(req, out) {
         const task = req.visionTask || TASKS[req.path];

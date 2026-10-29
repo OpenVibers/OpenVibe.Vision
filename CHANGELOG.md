@@ -10,6 +10,10 @@ What changed in OpenVibe.Vision, newest first.
   tools remain open. Verification gives the same refusal before and after consent until enrollment is complete.
 - Publishes `vision.result.ready` and `vision.alert` through OpenVibe.Events when Events is configured. Event
   payloads contain provenance and class names, never image bytes, answer text or face templates.
+- Publishes through a durable outbox (`event_outbox`, migration `0004_event_outbox.sql`): the event waits in the
+  table until OpenVibe.Events takes it, so a publish that fails because Events is down or the network blipped is
+  retried with backoff instead of lost. Delivery is at least once and the event's own id is the idempotency key
+  Events dedupes on. The relay is off in a drill.
 
 ## 0.1.0 — 2026-10-28
 

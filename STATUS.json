@@ -56,7 +56,7 @@
     "Encrypted face templates, opt-in uploads and vectors (AES-256-GCM); immediate template/tag erasure on opt-out and a daily three-year retention job",
     "Network tools: routed alt text, owner-scoped CLIP index/find, Tesseract-first receipts, product vectors, DETR watch and moments, each with a receipt",
     "MCP on /mcp with RFC 9728 protected-resource metadata, token challenges and route-equivalent capability checks",
-    "vision.result.ready and vision.alert published through OpenVibe.Events when configured",
+    "vision.result.ready and vision.alert published through OpenVibe.Events when configured, through a durable outbox: a failed publish waits in event_outbox and is retried with backoff",
     "Answers, compare samples, private index and UI checks stored without image bytes; account export/deletion over every table including faces and the private index",
     "Network sign-in as OAuth client vision (PKCE S256, vision_at/vision_rt/vision_oauth), truthful readiness, loopback metrics",
     "Server-rendered pages with stable vi- ids/classes, discovery artifacts, deploy unit and nginx vhost, CI"

@@ -58,6 +58,9 @@ function load(env = process.env) {
             url: trim(env.VISION_EVENTS_URL || env.EVENTS_URL || ''),
             endpoint: env.VISION_EVENTS_ENDPOINT || '',
             intervalMs: Math.max(500, int(env.VISION_EVENTS_INTERVAL_MS, 5000)),
+            // The outbox relay: how often the drain looks for events that are due (the retry backoff is the
+            // SDK outbox's own: 1s, 5s, 30s, 2 min, 10 min).
+            outboxIntervalMs: Math.max(250, int(env.VISION_EVENTS_OUTBOX_INTERVAL_MS, 2000)),
             scope: env.VISION_EVENTS_SCOPE || 'events.event.publish',
         },
 
