@@ -4,13 +4,12 @@
  * The three task pages: /find, /read and /watch (plan 2026-10-28 §5.8/§5.8b).
  *
  * Each page is one job: one input or drop zone, the result directly under it, and examples a person can tap.
- * Everything is a plain server-rendered form, so it works without JavaScript; vision.js only adds drag-and-drop and
- * a filename on the drop zone. Power options sit inside a <details> one tap down, and the API notes live at the
+ * Everything is a plain server-rendered form, so it works without JavaScript. The drop zone is the kit's (kit.drop):
+ * kit-web.js adds drag and drop, paste and, on a phone, "Take a photo"; /read reads a picture as soon as it is chosen. Power options sit inside a <details> one tap down, and the API notes live at the
  * bottom of the page instead of above the tool.
  */
 const { esc } = require('../render/html');
-
-const UPLOAD_MARK = `<svg class="vi-drop-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>`;
+const kit = require('openvibe-shared/kit');
 
 function n(value, fallback = 0) {
     const x = Number(value);
@@ -34,6 +33,12 @@ function confidence(value) {
     return `${(x <= 1 ? x * 100 : x).toFixed(1)}%`;
 }
 
+/** What an answer took, for kit.receipt: the engine, the time, the cost (free when it was), and what is kept. */
+function took(receipt, kept) {
+    const cost = n(receipt.cost_usd);
+    return [['Read by', receipt.model || receipt.engine || 'local'], ['Time', receipt.ms != null ? kit.num(receipt.ms, 'ms') : null], ['Cost', cost > 0 ? kit.num(cost, 'money') : 'free'], ['Kept', kept]];
+}
+
 function facts(items) {
     return `<dl class="vi-facts vi-tool-facts">${items.filter((x) => x && x[1] != null && x[1] !== '').map(([dt, dd]) => `<div><dt>${esc(dt)}</dt><dd>${dd}</dd></div>`).join('')}</dl>`;
 }
@@ -42,15 +47,10 @@ function header({ kicker, title, lede }) {
     return `<header class="vi-page-h vi-tool-h"><p class="vi-kicker">${esc(kicker)}</p><h1>${esc(title)}</h1><p class="vi-lede">${esc(lede)}</p></header>`;
 }
 
-function dropZone({ id, name = 'image', label = 'Drop a picture here', hint = 'or choose a file' }) {
-    return `<label class="vi-drop" for="${esc(id)}" data-vi-drop>
-<span class="vi-drop-art">${UPLOAD_MARK}</span>
-<b>${esc(label)}</b>
-<span class="vi-drop-hint">${esc(hint)}</span>
-<span class="vi-drop-file" data-vi-file></span>
-<input class="vi-sr" id="${esc(id)}" type="file" name="${esc(name)}" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/avif">
-</label>`;
-}
+const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/avif';
+/** The picture's way in (kit.drop): choose, drop, paste, or take a photo on a phone. auto: send the form at once. */
+const dropZone = ({ id, name = 'image', label = 'Drop a picture here', hint = 'or choose a file', auto = false }) =>
+    kit.drop({ id, name, accept: ACCEPT, label, hint, camera: true, auto });
 
 function examples(links) {
     return `<div class="vi-examples"><span class="vi-examples-label">Try an example</span>${links.join('')}</div>`;
@@ -90,16 +90,15 @@ function find({ signedIn = false, q = '', result = null, problem = null, byImage
     } else if (result) {
         const rows = Array.isArray(result.results) ? result.results : [];
         const receipt = result.receipt || {};
-        resultHtml = `<section class="vi-result-tool" id="vi-find-result" aria-labelledby="vi-find-result-h">
-<div class="vi-result-head"><h2 id="vi-find-result-h">${rows.length ? `${rows.length} ${rows.length === 1 ? 'match' : 'matches'}` : 'No matches yet'}</h2><span class="vi-status${rows.length ? ' is-on' : ''}">${esc(byImage ? 'by picture' : 'by words')}</span></div>
-${rows.length ? `<ol class="vi-matches">${rows.slice(0, 30).map((m, i) => `<li class="vi-match">
-<span class="vi-match-rank" aria-hidden="true">${i + 1}</span>
-<span class="vi-match-main">${m.result_url ? `<a href="${esc(m.result_url)}" rel="noopener">Open this picture</a>` : `<b>Picture ${esc(m.item_id)}</b>`}<small>${esc(m.item_id)}</small></span>
-<span class="vi-match-score">${Math.round(n(m.score) * 100)}%</span>
-</li>`).join('')}</ol>` : `<p>Nothing in your pictures matches those words yet. Add pictures from <a href="https://openvibe.media">Pics or Media</a>, then search again.</p><p class="vi-fine">Your matches stay private; index entries are tied to your account.</p>`}
-${facts([['Engine', esc(receipt.model || receipt.engine || 'local')], ['Time', esc(when(receipt.ms))], ['Cost', esc(money(receipt.cost_usd))]])}
-<p class="vi-fine">${esc(receipt.retention || 'Only your own indexed pictures are searched; the query is not stored.')}</p>
-</section>`;
+        resultHtml = `<div id="vi-find-result">${kit.receipt({
+            title: rows.length ? `${rows.length} ${rows.length === 1 ? 'match' : 'matches'} ${byImage ? 'by picture' : 'by words'}` : 'No matches yet',
+            body: `\${rows.length ? \`<ol class="vi-matches">\${rows.slice(0, 30).map((m, i) => \`<li class="vi-match">
+<span class="vi-match-rank" aria-hidden="true">\${i + 1}</span>
+<span class="vi-match-main">\${m.result_url ? \`<a href="\${esc(m.result_url)}" rel="noopener">Open this picture</a>\` : \`<b>Picture \${esc(m.item_id)}</b>\`}<small>\${esc(m.item_id)}</small></span>
+<span class="vi-match-score">\${Math.round(n(m.score) * 100)}%</span>
+</li>\`).join('')}</ol>\` : \`<p>Nothing in your pictures matches those words yet. Add pictures from <a href="https://openvibe.media">Pics or Media</a>, then search again.</p><p class="vi-fine">Your matches stay private; index entries are tied to your account.</p>\`}<p class="vi-fine">${esc(receipt.retention || 'Only your own indexed pictures are searched; the query is not stored.')}</p>`,
+            facts: took(receipt, 'not stored'),
+        })}</div>`;
     } else {
         resultHtml = `<section class="vi-result-tool vi-result-empty" id="vi-find-empty">
 <h2>Your matches appear here</h2>
@@ -132,24 +131,31 @@ function readView({ signedIn = false, ai = false, problem = null, result = null,
     let resultHtml;
     if (result) {
         const conf = confidence(result.confidence);
-        resultHtml = `<section class="vi-result-tool" id="vi-read-result" aria-labelledby="vi-read-result-h">
-<div class="vi-result-head"><h2 id="vi-read-result-h">What it says</h2><span class="vi-status is-on">${esc(result.engine === 'ai' ? 'AI fallback' : 'local OCR')}</span></div>
-<pre class="vi-ocr-text">${esc(result.text || 'No text was found.')}</pre>
-${facts([['Engine', esc(/tesseract/i.test(String(result.model || '')) ? 'Tesseract 5' : (result.model || result.engine || 'Tesseract 5'))], ['Confidence', conf ? esc(conf) : null], ['Time', esc(when(result.latency_ms || result.ms))], ['Cost', esc(money(result.cost_usd))]])}
-<p class="vi-fine">${esc(/[.!?]$/.test(String(result.reason || '')) ? result.reason : `${result.reason || 'The local reader answered first'}.`)} ${signedIn && result.id ? `Saved to <a href="/a/${encodeURIComponent(result.id)}">your answers</a>.` : 'This reading is shown here and not saved.'}</p>
-</section>`;
+        // The reading first, then one quiet line of what it took (kit.receipt); a copy button when there is text.
+        const pct = result.confidence == null ? null : Number(result.confidence) <= 1 ? Number(result.confidence) * 100 : Number(result.confidence);
+        const cost = n(result.cost_usd);
+        const said = String(result.reason || 'The local reader answered first');
+        const reason = `${said.charAt(0).toUpperCase()}${said.slice(1)}${/[.!?]$/.test(said) ? '' : '.'}`;
+        const copy = result.text ? `<button type="button" class="ovk-icon-btn" data-ovk-copy="#vi-ocr-text" aria-label="Copy the text" title="Copy the text" hidden>${kit.icon('copy')}</button>` : '';
+        resultHtml = `<div id="vi-read-result">${kit.receipt({
+            title: 'What it says', actions: [copy],
+            body: `<pre class="vi-ocr-text" id="vi-ocr-text" tabindex="0">${esc(result.text || 'No text was found in this picture.')}</pre><p class="vi-fine">${esc(reason)}</p>`,
+            facts: [
+                ['Read by', `${/tesseract/i.test(String(result.model || '')) ? 'Tesseract 5' : (result.model || result.engine || 'Tesseract 5')}${result.engine === 'ai' ? ' (AI fallback)' : ''}`],
+                ['Confidence', conf && Number.isFinite(pct) ? { html: `${kit.meter({ value: pct, label: 'Confidence', text: conf })}${esc(conf)}` } : null],
+                ['Time', kit.num(result.latency_ms || result.ms, 'ms')],
+                ['Cost', cost > 0 ? kit.num(cost, 'money') : 'free'],
+                ['Kept', signedIn && result.id ? { html: `<a href="/a/${encodeURIComponent(result.id)}">in your answers</a>` } : 'not stored'],
+            ],
+        })}</div>`;
     } else {
-        resultHtml = `<section class="vi-result-tool vi-result-empty" id="vi-read-empty">
-<h2>Your reading appears here</h2>
-<p>Choose a photo above and press <b>Read it</b>. The words come back in reading order, with the engine, the confidence and the time.</p>
-<ul class="vi-steps"><li>Receipts: store, lines and total.</li><li>Signs, labels and screenshots: the words as written.</li><li>Nothing is sent to a model unless you ask.</li></ul>
-</section>`;
+        resultHtml = '';
     }
     return `<div class="vi-wrap vi-tool" id="vi-read">
-${header({ kicker: 'Read · local first', title: 'Read the words in a picture', lede: 'Receipts, signs, screenshots and labels, read on this host. Free, and the picture is not stored.' })}
+${header({ kicker: 'Read · local first', title: 'Read the words in a picture', lede: 'Receipts, signs, screenshots and labels: the words come back in reading order. Read on this host, free, and the picture is not stored.' })}
 ${problemNote(problem)}
-<form class="vi-tool-form" id="vi-read-form" method="post" action="/read" enctype="multipart/form-data">
-${dropZone({ id: 'vi-read-file', label: 'Drop a picture to read', hint: 'or choose a file' })}
+<form class="vi-tool-form" id="vi-read-form" method="post" action="/read#vi-read-result" enctype="multipart/form-data">
+${dropZone({ id: 'vi-read-file', label: 'Choose a picture to read', hint: 'or drop or paste one · read as soon as it is chosen', auto: true })}
 ${examples([`<button class="vi-example" type="submit" name="example" value="receipt">A shop receipt</button>`, `<button class="vi-example" type="submit" name="example" value="sign">A station sign</button>`])}
 <div class="vi-actions"><button class="vi-btn" type="submit">Read it</button><a class="vi-btn vi-btn-quiet" href="/ask">Ask about it instead</a></div>
 <details class="vi-options"><summary>Language and AI fallback</summary>
@@ -179,12 +185,11 @@ function watchView({ problem = null, result = null, values = {} } = {}) {
     if (result) {
         const list = Array.isArray(result.detections) ? result.detections : [];
         const receipt = result.receipt || {};
-        resultHtml = `<section class="vi-result-tool" id="vi-watch-result" aria-labelledby="vi-watch-result-h">
-<div class="vi-result-head"><h2 id="vi-watch-result-h">${list.length ? `${list.length} ${list.length === 1 ? 'thing' : 'things'} found` : 'Nothing from your list'}</h2><span class="vi-status${list.length ? ' is-on' : ''}">on this host</span></div>
-${list.length ? `<ul class="vi-findings-list">${list.map((d) => `<li><b>${esc(d.class)}</b><span>${confidence(d.confidence) ? `${esc(confidence(d.confidence))} confidence` : 'detected'}</span>${d.box ? `<small>box ${Math.round(Number(d.box.xmin) || 0)}, ${Math.round(Number(d.box.ymin) || 0)} to ${Math.round(Number(d.box.xmax) || 0)}, ${Math.round(Number(d.box.ymax) || 0)}</small>` : ''}</li>`).join('')}</ul>` : '<p>No watched object was found in this still. Try a closer picture, or add another thing to watch for.</p>'}
-${facts([['Engine', esc(receipt.model || receipt.engine || 'local')], ['Time', esc(when(receipt.ms))], ['Cost', esc(money(receipt.cost_usd))]])}
-<p class="vi-fine">The still is not stored. Vision finds the classes you chose; it does not identify people.</p>
-</section>`;
+        resultHtml = `<div id="vi-watch-result">${kit.receipt({
+            title: list.length ? `${list.length} ${list.length === 1 ? 'thing' : 'things'} found` : 'Nothing from your list',
+            body: `\${list.length ? \`<ul class="vi-findings-list">\${list.map((d) => \`<li><b>\${esc(d.class)}</b><span>\${confidence(d.confidence) ? \`\${esc(confidence(d.confidence))} confidence\` : 'detected'}</span>\${d.box ? \`<small>box \${Math.round(Number(d.box.xmin) || 0)}, \${Math.round(Number(d.box.ymin) || 0)} to \${Math.round(Number(d.box.xmax) || 0)}, \${Math.round(Number(d.box.ymax) || 0)}</small>\` : ''}</li>\`).join('')}</ul>\` : '<p>No watched object was found in this still. Try a closer picture, or add another thing to watch for.</p>'}<p class="vi-fine">Vision finds the classes you chose; it does not identify people.</p>`,
+            facts: took(receipt, 'not stored'),
+        })}</div>`;
     } else {
         resultHtml = `<section class="vi-result-tool vi-result-empty" id="vi-watch-empty">
 <h2>What Vision sees appears here</h2>
@@ -195,7 +200,7 @@ ${facts([['Engine', esc(receipt.model || receipt.engine || 'local')], ['Time', e
     return `<div class="vi-wrap vi-tool" id="vi-watch">
 ${header({ kicker: 'Watch · local', title: 'Watch a camera still', lede: 'Drop a still and see what is there: a delivery, a package, a person or a car. Runs on this host, and the picture is not stored.' })}
 ${problemNote(problem)}
-<form class="vi-tool-form" id="vi-watch-form" method="post" action="/watch" enctype="multipart/form-data">
+<form class="vi-tool-form" id="vi-watch-form" method="post" action="/watch#vi-watch-result" enctype="multipart/form-data">
 ${dropZone({ id: 'vi-watch-file', label: 'Drop a camera still', hint: 'a photo or screenshot' })}
 <fieldset class="vi-choices"><legend>What are you watching for?</legend>${choices}</fieldset>
 <div class="vi-actions"><button class="vi-btn" type="submit">Check this still</button><a class="vi-btn vi-btn-quiet" href="/read">Read it instead</a></div>
