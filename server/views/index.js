@@ -21,9 +21,16 @@ function motif() {
 
 function home({ signedIn = false, ai = false } = {}) {
     const tryIt = `<section class="vi-section vi-tasks-wrap" id="vi-try" aria-labelledby="vi-try-h">
-<div class="vi-head-row"><h2 id="vi-try-h">What do you want to do?</h2><span class="vi-count">${ai ? 'local engines first, then OpenVibe.AI' : 'local engines on this host'}</span></div>
-<ul class="vi-tasks"><li><a class="vi-task" href="/ask"><b>Look</b><span>Ask anything about a picture: what it shows, how many, what it says.</span></a></li><li><a class="vi-task" href="/read"><b>Read</b><span>Receipts, signs, screenshots and documents, read on this host first, for nothing.</span></a></li><li><a class="vi-task" href="/ask"><b>Translate</b><span>A sign, a menu or a stream overlay, read and put into your language.</span></a></li><li><a class="vi-task" href="/find"><b>Find</b><span>Search your own pictures by words or by another picture. Only you see the results.</span></a></li><li><a class="vi-task" href="/watch"><b>Watch</b><span>Point it at a still from your camera and get told when a delivery, an animal or a change shows up.</span></a></li><li><a class="vi-task" href="/people"><b>People</b><span>Faces with your consent: verify yourself, find yourself, tag co-streamers who opted in, or just blur.</span></a></li><li><a class="vi-task" href="/compare"><b>Compare</b><span>One picture, several models, side by side, with what each answer cost and how long it took.</span></a></li><li><a class="vi-task" href="/ui-check"><b>Check a page</b><span>Overflow, clipped text, low contrast and overlap, found in HTML, a URL or a screenshot.</span></a></li></ul>
-${signedIn ? '' : '<p class="vi-fine">Reading, blurring and the page check work without an account. Saving answers, your picture search and faces need <a href="/auth/login?next=%2F">an OpenVibe sign-in</a>.</p>'}
+<div class="vi-head-row"><h2 id="vi-try-h">Pick one thing to do</h2><span class="vi-count">${ai ? 'local first, AI when it helps' : 'local engines on this host'}</span></div>
+<ul class="vi-tasklist">
+<li><a href="/ask"><span class="vi-task-txt"><b>Look at a picture</b><span>Ask what it shows, read it, translate it or count something.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+<li><a href="/read"><span class="vi-task-txt"><b>Read a receipt or a sign</b><span>The words on this host, for nothing, with the picture not stored.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+<li><a href="/find"><span class="vi-task-txt"><b>Find your own picture</b><span>Describe it and search only your pictures. Nobody else sees the results.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+<li><a href="/watch"><span class="vi-task-txt"><b>Watch a camera still</b><span>Name a package, a delivery, a person or a car in a picture.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+<li><a href="/people"><span class="vi-task-txt"><b>Choose what faces may do</b><span>Four separate choices, each off until you sign it. Never a stranger lookup.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+</ul>
+<div class="vi-more-row"><span>Need more?</span> <a href="/compare">Compare models</a> <span aria-hidden="true">·</span> <a href="/ui-check">Check a page</a> <span aria-hidden="true">·</span> <a href="/ocr">Raw OCR</a></div>
+${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work without an account. Saving answers, your picture search and faces need <a href="/auth/login?next=%2F">an OpenVibe sign-in</a>.</p>'}
 <p class="vi-fine"><a href="/people">Your face choices</a> · <a href="/people/privacy">How faces are kept</a></p>
 </section>
 <section class="vi-section vi-net-wrap" aria-labelledby="vi-net-h"><div class="vi-head-row"><h2 id="vi-net-h">Works across OpenVibe</h2><a class="vi-more" href="/developers">The API</a></div>
@@ -32,12 +39,12 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, blurring and the page check work 
         room: 'vision',
         hero: {
             title: 'See it. Use it everywhere.',
-            lede: 'Point Vision at a picture and do something with it: read a receipt into your pantry, find your own photos by words, get told when your camera sees a delivery, or check a page before it ships. Every answer says which model saw it, what it cost and what was kept.',
+            lede: 'Point Vision at a picture and get something done: read a receipt, find your own photo by words, or get told when your camera sees a delivery. Local engines answer first, and every answer says what it cost.',
             start: { href: '/ask', label: 'Look at a picture' },
-            chips: [{ label: 'Read', href: '/read' }, { label: 'Find', href: '/find' }, { label: 'Watch', href: '/watch' }, { label: 'People', href: '/people' }, { label: 'The API', href: '/developers' }],
-            proof: [{ value: '0.0000', label: 'USD for a local read' }, { value: '8', label: 'tools, one API' }],
+            chips: [{ label: 'Read', href: '/read' }, { label: 'Find', href: '/find' }, { label: 'Watch', href: '/watch' }, { label: 'People', href: '/people' }],
             motif: motif(),
         },
+        proof: [{ value: '0.0000', label: 'USD for a local read' }, { value: '8', label: 'tools, one place' }],
         scenes: [
             {
                 title: 'A receipt, read for nothing',
@@ -48,7 +55,7 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, blurring and the page check work 
             {
                 title: 'The same image, side by side',
                 text: 'A compare sends one image to the local reader and to OpenVibe.AI. AI\'s router is the authority: the provider and model shown are the ones that answered, never the hint. Cost comes from AI\'s own run, latency is measured here.',
-                html: `<table class="vi-demo-table"><caption>one image, three answers</caption><thead><tr><th scope="col">engine</th><th scope="col">answer</th><th scope="col">cost</th><th scope="col">time</th></tr></thead><tbody><tr><td>local OCR</td><td>“TOTAL 5.50”</td><td>0.0000</td><td>38 ms</td></tr><tr><td>pool:fast</td><td>a receipt from a market</td><td>0.0004</td><td>1.1 s</td></tr><tr><td>pool:best</td><td>the total is 5.50</td><td>0.0012</td><td>2.4 s</td></tr></tbody></table>`,
+                html: `<div class="vi-demo-scroll"><table class="vi-demo-table"><caption>one image, three answers</caption><thead><tr><th scope="col">engine</th><th scope="col">answer</th><th scope="col">cost</th><th scope="col">time</th></tr></thead><tbody><tr><td>local OCR</td><td>“TOTAL 5.50”</td><td>0.0000</td><td>38 ms</td></tr><tr><td>pool:fast</td><td>a receipt from a market</td><td>0.0004</td><td>1.1 s</td></tr><tr><td>pool:best</td><td>the total is 5.50</td><td>0.0012</td><td>2.4 s</td></tr></tbody></table></div>`,
                 action: { href: '/compare', label: 'Run a compare' },
             },
             {

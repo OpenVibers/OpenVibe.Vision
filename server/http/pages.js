@@ -18,6 +18,8 @@
  *   /developers       the API
  *   404
  */
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const multer = require('multer');
 const seo = require('openvibe-shared/seo');
@@ -32,13 +34,16 @@ const { send } = require('../render/layout');
 const { isStaff } = require('../identity/staff');
 const views = require('../views');
 const peopleViews = require('../views/people');
+const toolViews = require('../views/tools');
 
 const PUBLIC_CACHE = 'public, max-age=60';
+const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
+const SAMPLE_IMAGES = { receipt: 'sample-receipt.png', sign: 'sample-sign.png' };
 
 function createPageRoutes(ctx) {
-    const { config, s, store, vision, ai, ocr, faces, fetchImpl } = ctx;
+    const { config, s, store, vision, ai, ocr, faces, networkTools, fetchImpl } = ctx;
     const r = asyncRouter();
-    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 2 } });
     r.use(express.urlencoded({ extended: false, limit: '2mb' }));
     const base = () => String(config.baseUrl).replace(/\/+$/, '');
     const page = (req, res, o, status = 200) => send(res, status, { viewer: req.viewer, config, path: req.originalUrl, ...o });
@@ -50,10 +55,39 @@ function createPageRoutes(ctx) {
         if (err.code === 'LIMIT_FILE_SIZE') return page(req, res, { title: 'That image is too large', body: raw(views.formError(`The image is larger than ${config.images.maxMb} MB.`)) }, 413);
         return next(err);
     });
+    const uploadWatchMiddleware = (req, res, next) => upload.fields([{ name: 'image', maxCount: 1 }, { name: 'previous_image', maxCount: 1 }])(req, res, (err) => {
+        if (!err) return next();
+        if (err.code === 'LIMIT_FILE_SIZE') return page(req, res, { title: 'That image is too large', body: raw(toolViews.watchView({ problem: `The image is larger than ${config.images.maxMb} MB.` })) }, 413);
+        return next(err);
+    });
     const bodyOf = (req) => (req.body && typeof req.body === 'object' ? req.body : {});
     async function imageOf(req) {
         return await loadImage({ file: req.file && req.file.buffer, imageUrl: bodyOf(req).image_url, image: bodyOf(req).image, config, fetchImpl });
     }
+    // The two sample pictures are served from public/img and read here on the server, so a person can tap a real
+    // example without an upload and without the image URL fetch (which refuses private hosts).
+    async function sampleImage(name) {
+        if (!Object.prototype.hasOwnProperty.call(SAMPLE_IMAGES, name)) return null;
+        const file = SAMPLE_IMAGES[name];
+        return await loadImage({ file: await fs.promises.readFile(path.join(PUBLIC_DIR, 'img', file)), config, fetchImpl });
+    }
+    async function toolImage(req) {
+        const example = bodyOf(req).example;
+        if (typeof example === 'string' && Object.prototype.hasOwnProperty.call(SAMPLE_IMAGES, example)) return await sampleImage(example);
+        return await imageOf(req);
+    }
+    // A person gets a plain sentence, not a model filename or an npm command. Operators still have the API's
+    // machine code and the server log.
+    const friendly = (err, fallback) => {
+        if (!(err instanceof VisionError)) return fallback;
+        if (['vision.detector_unavailable', 'vision.clip_unavailable', 'vision.ocr_unavailable', 'vision.model_unavailable'].includes(err.code)) {
+            return 'The local engine for this tool is not installed on this host yet. Nothing was stored.';
+        }
+        if (err.code === 'vision.previous_required') return 'Add a previous still to compare a scene change.';
+        if (err.code === 'vision.invalid_classes') return 'Choose between one and twenty things to watch for.';
+        if (err.code === 'vision.ai_unavailable') return 'The AI fallback is not configured on this host. The local reader still works.';
+        return err.detail || fallback;
+    };
     const viewportOf = (req) => {
         const b = bodyOf(req);
         return { w: Math.max(160, Math.min(10000, Number(b.viewport_w) || 1280)), h: Math.max(160, Math.min(10000, Number(b.viewport_h) || 800)) };
@@ -92,13 +126,111 @@ function createPageRoutes(ctx) {
         catch (err) { return page(req, res, { title: 'People', body: raw(views.formError(err.detail || err.message || 'Enrolment failed.')) }, err.status || 400); }
     });
 
-    const toolPage = (req, res, title, intro, fields) => page(req, res, {
-        title, cache: PUBLIC_CACHE,
-        body: html`<main class="vi-wrap vi-page-pad vi-narrow"><header class="vi-section-head"><h1>${title}</h1><p class="vi-lede">${intro}</p></header><div class="vi-panel"><p class="vi-fine">These tools are available through Vision's JSON API. Sign in and send an image as multipart <code>image</code> or a data URL.</p>${fields}</div></main>`,
+    // ── The three task pages ─────────────────────────────────
+    // Each is one input and its result. /read works for anyone (local OCR); /find searches only the signed-in
+    // person's own index; /watch is open object detection with no templates and no identity.
+    const toolMeta = (title, pagePath, description) => ({
+        title, cache: PUBLIC_CACHE, description,
+        jsonLd: [seo.jsonLd.webPage({ name: title, url: `${base()}${pagePath}`, description, siteUrl: base() })],
     });
-    r.get('/find', (req, res) => toolPage(req, res, 'Find in your images', 'Private visual search uses local CLIP embeddings and checks the owner on each read.', html`<form method="get" action="/find"><label class="vi-label" for="vi-find-q">Search words</label><input id="vi-find-q" name="q" value="${String(req.query.q || '').slice(0, 500)}"><button type="submit">Search</button></form><p class="vi-fine">Room call: GET /api/v1/find?q= with the owner token; POST /api/v1/index to add an image.</p>`));
-    r.get('/read', (req, res) => toolPage(req, res, 'Read a receipt', 'Local Tesseract extracts store, line items and total; a routed fallback is optional.', html`<p class="vi-fine">Food calls POST /api/v1/receipt with the image and optional fallback=true. For plain text, use POST /api/v1/ocr.</p>`));
-    r.get('/watch', (req, res) => toolPage(req, res, 'Watch a still', 'Detect selected objects or a scene change in an owner-supplied camera still.', html`<p class="vi-fine">Cam calls POST /api/v1/watch with the owner token, image and classes. Send previous_image for scene change.</p>`));
+
+    r.get('/find', async (req, res) => {
+        const q = String(req.query.q || '').slice(0, 500);
+        let result = null; let problem = null;
+        if (q && signedIn(req)) {
+            try { result = await networkTools.find(req.viewer.subject, q); }
+            catch (err) { problem = friendly(err, 'Those pictures could not be searched just now.'); }
+        }
+        return page(req, res, {
+            ...toolMeta('Find a picture by words', '/find', 'Search only your own pictures by describing them. Private results, owner-checked on every read.'),
+            body: raw(toolViews.find({ signedIn: Boolean(signedIn(req)), q, result, problem })),
+        });
+    });
+    r.post('/find', uploadMiddleware, async (req, res) => {
+        if (!signedIn(req)) return page(req, res, { title: 'Sign in', body: raw(views.signIn({ title: 'Find a picture', text: 'Searching your own pictures needs an OpenVibe sign-in.', next: '/find' })) }, 401);
+        if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        try {
+            const out = await networkTools.find(req.viewer.subject, await imageOf(req));
+            return page(req, res, {
+                ...toolMeta('Find a picture by words', '/find', 'Search only your own pictures by describing them. Private results, owner-checked on every read.'),
+                body: raw(toolViews.find({ signedIn: true, result: out, byImage: true })),
+            });
+        } catch (err) {
+            return page(req, res, {
+                ...toolMeta('Find a picture by words', '/find', 'Search only your own pictures by describing them. Private results, owner-checked on every read.'),
+                body: raw(toolViews.find({ signedIn: true, problem: friendly(err, 'That picture could not be searched.') })),
+            }, err instanceof VisionError ? err.status : 500);
+        }
+    });
+
+    r.get('/read', (req, res) => page(req, res, {
+        ...toolMeta('Read text from a picture', '/read', 'Read receipts, signs, screenshots and labels with the local OCR engine. Free, and the picture is not stored.'),
+        body: raw(toolViews.readView({ signedIn: Boolean(signedIn(req)), ai: ai.enabled })),
+    }));
+    r.post('/read', uploadMiddleware, async (req, res) => {
+        if (signedIn(req) && !sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        const b = bodyOf(req);
+        const fallback = b.fallback === '1' || b.fallback === 'true' || b.fallback === 'on';
+        try {
+            const image = await toolImage(req);
+            const out = await vision.ocr({
+                requester: signedIn(req) ? `user:${req.viewer.subject}` : 'anonymous',
+                subject: signedIn(req) ? req.viewer.subject : null,
+                image, lang: b.lang, fallback: Boolean(signedIn(req)) && fallback, model: b.model,
+            });
+            return page(req, res, {
+                ...toolMeta('Read text from a picture', '/read', 'Read receipts, signs, screenshots and labels with the local OCR engine. Free, and the picture is not stored.'),
+                body: raw(toolViews.readView({ signedIn: Boolean(signedIn(req)), ai: ai.enabled, result: out, values: { lang: b.lang } })),
+            });
+        } catch (err) {
+            return page(req, res, {
+                ...toolMeta('Read text from a picture', '/read', 'Read receipts, signs, screenshots and labels with the local OCR engine. Free, and the picture is not stored.'),
+                body: raw(toolViews.readView({ signedIn: Boolean(signedIn(req)), ai: ai.enabled, problem: friendly(err, 'That picture could not be read.'), values: { lang: b.lang } })),
+            }, err instanceof VisionError ? err.status : 500);
+        }
+    });
+
+    r.get('/watch', (req, res) => page(req, res, {
+        ...toolMeta('Watch a camera still', '/watch', 'Drop a camera still and find a package, a delivery, a person or a car. Local detection; the picture is not stored.'),
+        body: raw(toolViews.watchView({})),
+    }));
+    r.post('/watch', uploadWatchMiddleware, async (req, res) => {
+        if (signedIn(req) && !sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        const b = bodyOf(req);
+        const classes = [...new Set((Array.isArray(b.classes) ? b.classes : b.classes == null ? [] : [b.classes])
+            .flatMap((x) => String(x).split(','))
+            .map((x) => x.trim().toLowerCase())
+            .filter(Boolean))].slice(0, 20);
+        if (!classes.length) {
+            return page(req, res, {
+                ...toolMeta('Watch a camera still', '/watch', 'Drop a camera still and find a package, a delivery, a person or a car. Local detection; the picture is not stored.'),
+                body: raw(toolViews.watchView({ problem: 'Choose at least one thing to watch for.', values: { classes } })),
+            }, 400);
+        }
+        const files = req.files || {};
+        const imageFile = files.image && files.image[0];
+        if (!imageFile) {
+            return page(req, res, {
+                ...toolMeta('Watch a camera still', '/watch', 'Drop a camera still and find a package, a delivery, a person or a car. Local detection; the picture is not stored.'),
+                body: raw(toolViews.watchView({ problem: 'Drop a camera still first.', values: { classes } })),
+            }, 400);
+        }
+        try {
+            const image = await loadImage({ file: imageFile.buffer, config, fetchImpl });
+            const previousFile = files.previous_image && files.previous_image[0];
+            const previous = previousFile ? await loadImage({ file: previousFile.buffer, config, fetchImpl }) : null;
+            const out = await networkTools.watch(image, classes, previous);
+            return page(req, res, {
+                ...toolMeta('Watch a camera still', '/watch', 'Drop a camera still and find a package, a delivery, a person or a car. Local detection; the picture is not stored.'),
+                body: raw(toolViews.watchView({ result: out, values: { classes } })),
+            });
+        } catch (err) {
+            return page(req, res, {
+                ...toolMeta('Watch a camera still', '/watch', 'Drop a camera still and find a package, a delivery, a person or a car. Local detection; the picture is not stored.'),
+                body: raw(toolViews.watchView({ problem: friendly(err, 'That still could not be checked.'), values: { classes } })),
+            }, err instanceof VisionError ? err.status : 500);
+        }
+    });
 
     // ── Ask ──────────────────────────────────────────────────
     r.get('/ask', (req, res) => page(req, res, {
