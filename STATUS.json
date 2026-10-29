@@ -10,11 +10,11 @@
   "domain": "openvibe.vision",
   "contracts": "openvibe-contracts v0.235.0",
   "sdk": "openvibe-sdk v0.70.0",
-  "shared": "openvibe-shared v4.36.1",
+  "shared": "openvibe-shared v4.36.2",
   "packages": [
     "openvibe-contracts v0.235.0",
     "openvibe-sdk v0.70.0",
-    "openvibe-shared v4.36.1"
+    "openvibe-shared v4.36.2"
   ],
   "capabilities": [
     "vision.ask",
