@@ -37,6 +37,9 @@ function publicPages() {
     return [
         { path: '/', changefreq: 'daily', priority: 1.0, title: 'OpenVibe.Vision home', text: 'Ask a picture, compare models, read text with the local OCR engine, and check a page for UI faults.' },
         { path: '/ask', changefreq: 'weekly', priority: 0.9, title: 'Ask a picture', text: 'Upload an image or paste a public URL and ask what it shows.' },
+        { path: '/read', changefreq: 'weekly', priority: 0.9, title: 'Read text from a picture', text: 'Read a receipt, sign, label or screenshot with the local OCR engine; free, and the picture is not stored.' },
+        { path: '/find', changefreq: 'weekly', priority: 0.8, title: 'Find a picture by words', text: 'Search only your own pictures by describing them; owner-checked on every read and never a public index.' },
+        { path: '/watch', changefreq: 'weekly', priority: 0.8, title: 'Watch a camera still', text: 'Find a package, a delivery, a person or a car in a camera still with local object detection.' },
         { path: '/ocr', changefreq: 'weekly', priority: 0.8, title: 'Read text from a picture', text: 'Local Tesseract OCR first, with an optional AI fallback for a signed-in person.' },
         { path: '/compare', changefreq: 'weekly', priority: 0.8, title: 'Compare models side by side', text: 'The same image through local OCR and through OpenVibe.AI, with the answer, cost and latency side by side.' },
         { path: '/ui-check', changefreq: 'weekly', priority: 0.9, title: 'Check a page for UI faults', text: 'Overflow, cut-off text, low contrast, overlap and layering faults from HTML, a URL or a screenshot.' },
@@ -70,7 +73,9 @@ function createDiscoveryRoutes(ctx) {
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Vision', url: abs('/') },
                     { title: 'Ask a picture', url: abs('/ask') },
-                    { title: 'Read text from a picture', url: abs('/ocr') },
+                    { title: 'Read text from a picture', url: abs('/read') },
+                    { title: 'Find your own picture', url: abs('/find') },
+                    { title: 'Watch a camera still', url: abs('/watch') },
                     { title: 'Compare models', url: abs('/compare') },
                     { title: 'The UI check', url: abs('/ui-check') },
                     { title: 'People and consent', url: abs('/people') },
