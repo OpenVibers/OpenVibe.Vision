@@ -78,6 +78,7 @@ outbound capability; AI's quotas and its own route decide whether a run is allow
 | `face_media` | owner, AES-GCM ciphertext of an opt-in Vision upload and its face vectors, media type | `0003_faces.sql` |
 | `face_tags` | consenting subject, channel, private media reference and time; removed on cast revocation | `0003_faces.sql` |
 | `face_clusters` | owner, media, encrypted vector, group id, optional label (null while unknown), excluded flag | `0003_faces.sql` |
+| `event_outbox` | the events Vision publishes wait here until OpenVibe.Events takes them: the envelope, its own event id (the idempotency key), the attempts and the last error; sent rows are pruned after 7 days | `migrations/0004_event_outbox.sql` |
 
 General answer tables store no image bytes, token or provider key. The opt-in face library stores encrypted uploads and vectors.
 

@@ -21,6 +21,7 @@ function createLifecycle({ server, ctx, exit, signals, timers = [], extra = [] }
             () => ctx.keys.client.stop(),
             async () => { clearInterval(ctx.telemetryTick); if (ctx.retention) await ctx.retention.stop(); if (ctx.telemetry) await ctx.telemetry.stop(); },
             () => clearInterval(ctx.faceRetentionTick),
+            () => { if (ctx.eventOutbox) ctx.eventOutbox.stop(); },
             () => ctx.s.close(),
             ...extra,
         ],
@@ -48,6 +49,11 @@ async function start() {
         ctx.faces.retention().catch((err) => console.error('[OpenVibe.Vision] face retention:', err.message));
     }
     ctx.keys.client.start();
+
+    // The event relay: Vision's own outbox → OpenVibe.Events. The rows wait in event_outbox until the drain
+    // sends them, with backoff after a failure. Off in a drill (a drill publishes nothing) and without the
+    // events URL or the OAuth client secret (the rows wait for the next boot).
+    ctx.eventOutbox.start();
 
     // The two account topics (export_requested, deleted) at OpenVibe.Events: idempotent; off without the URL, the
     // delivery secret and the client secret. The consumer itself is mounted in server/app.js.

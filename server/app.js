@@ -44,6 +44,7 @@ const { createFacesModel } = require('./vision/faces-model');
 const { createFaces } = require('./vision/faces');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
 const { createPublisher } = require('./events/publisher');
+const { createVisionOutbox } = require('./events/outbox');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const VERSION = require('../package.json').version;
@@ -79,8 +80,11 @@ async function createApp(opts = {}) {
         ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret, fetch: fetchImpl })
         : async () => { throw new Error('OV_OAUTH_CLIENT_SECRET is not set: Vision cannot answer account events'); });
 
-    const eventPublisher = opts.eventPublisher || createPublisher({ config, fetchImpl, log });
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, eventPublisher, log, fetchImpl };
+    // Vision's own event outbox (server/events/outbox.js): the events Vision publishes wait in event_outbox
+    // until OpenVibe.Events takes them, so a failed publish is not lost. The relay starts in server/index.js.
+    const eventOutbox = opts.eventOutbox || createVisionOutbox({ s, config, log, fetchImpl });
+    const eventPublisher = opts.eventPublisher || createPublisher({ outbox: eventOutbox, log });
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, eventOutbox, eventPublisher, log, fetchImpl };
 
     const app = express();
     app.disable('x-powered-by');
