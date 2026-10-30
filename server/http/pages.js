@@ -95,12 +95,16 @@ function createPageRoutes(ctx) {
     const formError = (message, status = 400) => ({ message, status });
 
     // ── Home ─────────────────────────────────────────────────
-    r.get('/', (req, res) => page(req, res, {
-        index: true, cache: PUBLIC_CACHE, title: null,
-        description: 'Ask a picture, read text, check a page, find your images and use local face privacy tools with consent for personal matching.',
-        jsonLd: homeJsonLd(config),
-        body: raw(views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled })),
-    }));
+    r.get('/', (req, res) => {
+        const home = views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled });
+        return page(req, res, {
+            index: true, cache: PUBLIC_CACHE, title: null,
+            description: 'Ask a picture, read text, check a page, find your images and use local face privacy tools with consent for personal matching.',
+            jsonLd: homeJsonLd(config),
+            body: raw(home.body),
+            inlineStyles: home.inlineStyles,
+        });
+    });
 
     r.get('/people', async (req, res) => page(req, res, { title: 'People and consent', body: raw(peopleViews.people({
         signedIn: Boolean(signedIn(req)), consents: signedIn(req) ? await faces.listConsents(req.viewer.subject) : [],
