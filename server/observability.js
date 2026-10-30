@@ -8,7 +8,7 @@
 const { jwksStatus } = require('openvibe-sdk/auth');
 const { createReadiness } = require('openvibe-shared/ready');
 
-function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null, faces = null, models = null }) {
+function createServiceReadiness({ s, config, valkey = null, release = null, ai = null, ocr = null, faces = null, models = null, sso = null }) {
     return createReadiness({
         service: 'vision',
         release,
@@ -32,6 +32,18 @@ function createServiceReadiness({ s, config, valkey = null, release = null, ai =
                 },
             },
             { name: 'oauth_client', required: false, check: () => (config.oauth.clientSecret ? true : 'OV_OAUTH_CLIENT_SECRET unset: sign-in and AI calls cannot complete') },
+            {
+                // Does the Network accept this site's OAuth client? 'invalid' means the id or the secret is wrong:
+                // the service must not stay ready on a sign-in that cannot work. 'unknown' (the Network did not
+                // answer) is left alone — that is the Network's outage, not this site's configuration.
+                name: 'sso_client', required: true,
+                check: async () => {
+                    if (!sso || typeof sso.checkClient !== 'function') return { skipped: 'no SSO client' };
+                    const client = await sso.checkClient();
+                    if (client === 'invalid') return 'the Network refuses this site\'s OAuth client: check OV_OAUTH_CLIENT_ID / OV_OAUTH_CLIENT_SECRET';
+                    return true;
+                },
+            },
             { name: 'ai', required: false, check: () => (ai && ai.enabled ? { ok: true, detail: { mode: 'on demand: a run is made only when a local engine cannot answer' } } : 'OpenVibe.AI is not configured: local OCR and the UI check still serve') },
             { name: 'local_clip', required: false, check: () => models && models.clipReady() ? { ok: true, detail: 'quantized CLIP weights present' } : 'CLIP weights missing: private search, product embedding and moments return 503' },
             { name: 'local_detector', required: false, check: () => models && models.detectorReady() ? { ok: true, detail: 'quantized DETR weights present' } : 'DETR weights missing: watched object classes return 503; scene change still works' },
