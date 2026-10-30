@@ -127,7 +127,7 @@ async function createApp(opts = {}) {
     // ── Machine endpoints ───────────────────────────────────
     app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'openvibe-vision', name: 'OpenVibe.Vision', version: VERSION }));
     release.mount(app, { registry: metrics.registry });
-    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, faces, models });
+    const readiness = createServiceReadiness({ s, config, valkey, ai, ocr, faces, models, sso });
     app.get('/api/ready', readiness.handler);
 
     // ── Who is asking (verified offline; refreshed when expired) ──
