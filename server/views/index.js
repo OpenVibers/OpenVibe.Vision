@@ -95,7 +95,8 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
             head: 'What Vision does',
             panes: arts.map((a, i) => ({ id: `vi-scene-${i}`, label: sceneTitles[i] || `Scene ${i + 1}`, html: a[0] })),
         });
-        html = start > 0 && end > 0 ? html.slice(0, start) + pick + html.slice(end) : html;
+        // The section stays: its scenes are the pick block's panes, and a wide screen shows them as they were.
+        html = start > 0 && end > 0 ? html.slice(0, start) + html.slice(start, html.indexOf('>', start) + 1) + pick + '</section>' + html.slice(end) : html;
     }
     const at = html.indexOf('<div class="pick" id="pick-scenes">');
     html = at < 0 ? html : html.slice(0, at) + tryIt + html.slice(at);
