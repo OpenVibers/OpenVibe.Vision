@@ -7,6 +7,8 @@
  */
 const { esc, time } = require('../render/html');
 const sc = require('openvibe-shared/showcase');
+// The short home (the owner's rule, 2026-10-30): pick blocks and folds.
+const { pickBlock, pickRules, foldAround } = require('../render/short');
 
 const MODEL_LABEL = (a) => (a && a.model ? `${a.provider ? `${a.provider}:` : ''}${a.model}` : 'the local engine');
 
@@ -77,8 +79,33 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
             ['Are my images stored?', 'General answers keep no image bytes. An opt-in face library stores encrypted uploads and vectors privately; turning its purposes off erases derived data. Account export and deletion include those rows.'],
         ] },
     });
-    const at = room.indexOf('<section class="sc-room-scenes"');
-    return `<div class="vi-wrap vi-home" id="vi-home">${at < 0 ? room : room.slice(0, at) + tryIt + room.slice(at)}</div>`;
+    // The short home (the owner's rule, 2026-10-30): the four scenes are one pick block, a row of chips picks one
+    // of them, and the parts a reader rarely needs are folds.
+    const sceneTitles = ['A receipt, read for nothing', 'The same image, side by side', 'The UI check catches the overflow', 'Faces, only with consent'];
+    const arts = [...room.matchAll(/<article class="sc-scene[\s\S]*?<\/article>/g)];
+    let html = room;
+    if (arts.length) {
+        const first = arts[0];
+        const last = arts[arts.length - 1];
+        const start = html.lastIndexOf('<section class="sc-room-scenes"', first.index);
+        const end = html.indexOf('</section>', last.index + last[0].length) + '</section>'.length;
+        const pick = pickBlock({
+            key: 'scenes',
+            label: 'What Vision does',
+            head: 'What Vision does',
+            panes: arts.map((a, i) => ({ id: `vi-scene-${i}`, label: sceneTitles[i] || `Scene ${i + 1}`, html: a[0] })),
+        });
+        html = start > 0 && end > 0 ? html.slice(0, start) + pick + html.slice(end) : html;
+    }
+    const at = html.indexOf('<div class="pick" id="pick-scenes">');
+    html = at < 0 ? html : html.slice(0, at) + tryIt + html.slice(at);
+    html = foldAround(html, '>Works across OpenVibe</h2>', 'net', '<h2 id="vi-net-h">Works across OpenVibe</h2>');
+    html = foldAround(html, '>Questions</h2>', 'faq', '<h2 id="vi-faq-h">Questions</h2>');
+    return {
+        body: `<div class="vi-wrap vi-home" id="vi-home">${html}</div>`,
+        // The rule that shows the picked scene of the pick block: one per scene, written for this page.
+        inlineStyles: [`@supports selector(:has(*)){@media (max-width:640px){${pickRules('scenes', arts.map((_, i) => `vi-scene-${i}`))}}}`],
+    };
 }
 
 function signIn({ title, text, next }) {

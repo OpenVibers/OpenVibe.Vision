@@ -94,6 +94,7 @@ ${appIcon.headTags({ site: 'vision' })}
 <script src="${ovServe.url('kit-web.js')}" defer></script>
 <script src="${ovServe.url('kit-data-web.js')}" defer></script>
 ${render(scripts)}
+${(o.inlineStyles || []).map((css) => `<style>${css}</style>`).join('\n')}
 <meta name="ov-boost" content="vision@${require('./html').esc(RELEASE)}">
 <script src="${require('openvibe-shared/serve').url('boost.js')}" data-main="#main" defer></script>`,
         body: `<a class="skip" href="#main">Skip to content</a>
