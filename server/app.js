@@ -42,6 +42,8 @@ const { createAi } = require('./vision/ai');
 const { createVision } = require('./vision/service');
 const { createFacesModel } = require('./vision/faces-model');
 const { createFaces } = require('./vision/faces');
+const { createFaceLibraries } = require('./vision/face-libraries');
+const { createConsentRegistry } = require('./vision/consent-registry');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
 const { createPublisher } = require('./events/publisher');
 const { createVisionOutbox } = require('./events/outbox');
@@ -69,7 +71,10 @@ async function createApp(opts = {}) {
     const ocr = opts.ocr || createOcr({ config, log });
     const ai = opts.ai || createAi({ config, fetchImpl, log });
     const vision = createVision({ config, s, ocr, ai, store, log });
-    const faces = createFaces({ s, config, model: opts.facesModel || createFacesModel({ dir: config.faces.modelsDir }) });
+    const facesModel = opts.facesModel || createFacesModel({ dir: config.faces.modelsDir });
+    const faces = createFaces({ s, config, model: facesModel });
+    const consentRegistry = createConsentRegistry({ config, fetchImpl, log });
+    const faceLibraries = createFaceLibraries({ s, config, model: facesModel, faces, network: consentRegistry, log });
     const models = require('./vision/local-models').createLocalModels({ config, clip: opts.clip, detector: opts.detector });
     const networkTools = require('./vision/network-tools').createNetworkTools({ s, ai, ocr, models, config, fetchImpl });
 
@@ -84,7 +89,7 @@ async function createApp(opts = {}) {
     // until OpenVibe.Events takes them, so a failed publish is not lost. The relay starts in server/index.js.
     const eventOutbox = opts.eventOutbox || createVisionOutbox({ s, config, log, fetchImpl });
     const eventPublisher = opts.eventPublisher || createPublisher({ outbox: eventOutbox, log });
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, models, networkTools, accountData, accountSend, eventOutbox, eventPublisher, log, fetchImpl };
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, faceLibraries, consentRegistry, models, networkTools, accountData, accountSend, eventOutbox, eventPublisher, log, fetchImpl };
 
     const app = express();
     app.disable('x-powered-by');

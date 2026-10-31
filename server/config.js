@@ -104,6 +104,12 @@ function load(env = process.env) {
             modelsDir: modelsDir(env),
             key: env.VISION_FACE_KEY || '',
             allowedRegions: String(env.VISION_FACE_LIBRARY_REGIONS || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean),
+            // F1 familiar faces: the owner picks the camera's region; a region on this list takes a named person's
+            // consent first (Illinois, Texas, Washington, the EU and the UK). An unknown or unlisted region defaults
+            // to strict, never to the looser mode.
+            strictRegions: String(env.VISION_FACE_STRICT_REGIONS || 'US-IL,US-TX,US-WA,EU,EU-*,GB,UK,UNKNOWN')
+                .split(',').map((x) => x.trim().toUpperCase()).filter(Boolean),
+            consentRequestDays: Math.min(90, Math.max(1, int(env.VISION_FACE_CONSENT_REQUEST_DAYS, 14))),
             threshold: (() => {
                 const raw = String(env.VISION_FACE_MATCH_THRESHOLD || '').trim();
                 const n = raw ? Number(raw) : 0.363;
