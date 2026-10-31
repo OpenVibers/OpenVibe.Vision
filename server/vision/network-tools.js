@@ -67,7 +67,7 @@ function createNetworkTools({ s, ai, ocr, models, config, fetchImpl = fetch }) {
         const start = Date.now();
         const vector = await (await models.clip()).image(image.buffer);
         const a = await routed(image, 'identify', 'Describe this product only: visible type, brand if legible, colour and identifying features. Do not describe people. One short sentence.');
-        const description = cleanAnswer(a.text).slice(0, 300);
+        const description = String(a.text).slice(0, 300);
         const offers = []; const warnings = [];
         for (const [name, base] of [['deals', config.offers.dealsUrl], ['open.shoes', config.offers.shoesUrl]]) {
             if (!base) { warnings.push(`${name} search API not configured`); continue; }
