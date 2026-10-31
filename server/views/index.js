@@ -74,7 +74,7 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
             },
         ],
         faq: { items: [
-            ['Does Vision recognise faces?', 'Only for a person who separately opts into a specific purpose: self verification, self search, cast tagging or private library grouping. Detect and blur never identify anyone. Public AI text never describes a person\'s looks.'],
+            ['Does Vision recognise faces?', 'Only for a person who separately opts into a specific purpose: self verification, self search, cast tagging or private library grouping. Detect and blur never identify anyone. AI may describe what it sees, people included, but it never names a stranger or uses a face as identity.'],
             ['Which model answers?', 'Every answer names the model and provider that actually answered and the reason it was chosen. Local OCR is first for a read question; otherwise OpenVibe.AI routes the run and its provenance is what Vision reports.'],
             ['Are my images stored?', 'General answers keep no image bytes. An opt-in face library stores encrypted uploads and vectors privately; turning its purposes off erases derived data. Account export and deletion include those rows.'],
         ] },
@@ -308,7 +308,7 @@ Content-Type: application/json
 { "html": "&lt;!doctype html&gt;…", "viewport": { "w": 390, "h": 844 } }</pre>
 </section>
 <section id="vi-limits"><h2>What leaves this host</h2>
-<p class="vi-fine">The local OCR engine, UI check and all face tools run on this host. Only an ask, compare or OCR fallback sends the normalised image to OpenVibe.AI; face images and templates never go there. General answers store no image bytes; opt-in face uploads are encrypted and private. Public AI text is passed through <code>noLooks</code>; a look-naming answer is replaced.</p>
+<p class="vi-fine">The local OCR engine, UI check and all face tools run on this host. Only an ask, compare or OCR fallback sends the normalised image to OpenVibe.AI; face images and templates never go there. General answers store no image bytes; opt-in face uploads are encrypted and private. AI may describe people, including how they look; it never names a stranger or uses a face as identity.</p>
 <p class="vi-fine">AI on this host: ${ai ? 'configured' : 'not configured (local engines only)'}. Model hints: ${esc((models || []).join(', ') || 'from AI\'s routes at request time')}.</p>
 </section>
 <section id="vi-search"><h2>Search</h2><p class="vi-fine">v1 has no public objects: answers and UI checks belong to the caller and are not indexed, so Vision writes no Search document and has no outbox. The v2 Arena's public leaderboards are where public records will begin.</p></section>

@@ -1,7 +1,6 @@
 'use strict';
 const { VisionError } = require('./service');
 const { forModel } = require('./images');
-const { cleanAnswer } = require('../text/no-looks');
 
 const receipt = (engine, model, ms, confidence, retention = 'not stored', cost = 0) => ({ engine, model, cost_usd: cost, ms, confidence, retention });
 function parseReceipt(text) {
@@ -26,8 +25,8 @@ function createNetworkTools({ s, ai, ocr, models, config, fetchImpl = fetch }) {
         catch (e) { throw new VisionError(e.status || 502, e.code || 'vision.ai_failed', e.detail || 'OpenVibe.AI could not answer'); }
     }
     async function alt(image) {
-        const a = await routed(image, 'describe', 'Write one short, editable alt text sentence about the scene, objects and action. Never name a person or describe any person’s appearance.');
-        const text = cleanAnswer(a.text).replace(/\s+/g, ' ').slice(0, 240);
+        const a = await routed(image, 'describe', 'Write one short, editable alt text sentence about the scene, objects and action. Describe people if they are in it, but never name someone or guess who they are.');
+        const text = String(a.text).replace(/\s+/g, ' ').slice(0, 240);
         return { alt_text: text, editable: true, receipt: receipt('routed', a.model, a.ms, null, 'not stored', a.costUsd) };
     }
     async function index(owner, itemId, image, url) {

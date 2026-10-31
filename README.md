@@ -23,7 +23,7 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. Face 
   cost and latency; `GET /api/v1/benchmarks` aggregates them with no subject or answer text.
 - **The UI check as an API.** `POST /api/v1/ui-check` is what Design's Arena will call, with a service token holding
   `vision.ui.check`. It also works for a signed-in person and, for HTML/URL/screenshot, anonymously.
-- **Consent-scoped faces, no looks in AI text.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. Public AI text is passed through `noLooks`;
+- **Consent-scoped faces, AI that may describe people.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. AI text is stored as written, people included;
   an answer that names a person's looks is replaced by a neutral sentence.
 - **Privacy.** General answers store no image bytes: a sha256, media type and byte count are stored. Opt-in face uploads, vectors and templates are encrypted and private. Answers, compare samples, UI checks and every face row are exported and erased with the person's account.
 - **Not in v1.** Public Arena leaderboards, video, computer-use benchmarks and OpenCV jobs on Run (v2/v3). v1 has no
@@ -227,7 +227,7 @@ node scripts/proof.js       # local OCR + a planted UI overflow, no network and 
 
 The tests use a mock Network, a mock OpenVibe.AI and local image/page fixtures: migration, SSO and readiness, the
 API and its capability guards, local OCR and its fallback, compare and benchmark aggregation, the UI check (a
-planted overflow, cut-off line, low contrast, overlap and layering fault), noLooks, pages/cache, account
+planted overflow, cut-off line, low contrast, overlap and layering fault), describing people, pages/cache, account
 export/deletion, the image SSRF guard, and faces with a fake ONNX model (all four consent gates, opt-out erasure,
 cast-roster-only matching, AES-GCM at rest, the retention job, the region gate and ADR-033 export/deletion).
 
@@ -247,7 +247,7 @@ All six tools are JSON APIs. Successful `answer` objects carry a `receipt` with 
 
 | Room call | Capability | Notes |
 |---|---|---|
-| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt.write` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
+| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt.write` | Routed VLM through OpenVibe.AI; short editable `alt_text`; no looks filter in the prompt or output; AI may describe people. |
 | Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.media.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
 | Food → `POST /api/v1/receipt` | `vision.receipt.read` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
 | Deals → `POST /api/v1/product` | `vision.product.match` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
@@ -264,6 +264,6 @@ Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEA
 
 <!-- versions:start -->
 - openvibe-contracts: v0.240.0
-- openvibe-sdk: v0.74.0
+- openvibe-sdk: v0.77.0
 - openvibe-shared: v4.55.0
 <!-- versions:end -->

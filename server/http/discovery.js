@@ -67,7 +67,7 @@ function createDiscoveryRoutes(ctx) {
     r.get('/llms.txt', (_req, res) => {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsTxt({
             name: SITE_NAME,
-            summary: 'OpenVibe.Vision answers questions about a picture, reads text locally and checks UI faults. Local face detection and blur need no identity; self verification, self search, cast tagging and library grouping each require separate consent. Public AI text never describes people\'s looks.',
+            summary: 'OpenVibe.Vision answers questions about a picture, reads text locally and checks UI faults. Local face detection and blur need no identity; self verification, self search, cast tagging and library grouping each require separate consent. AI may describe people, including how they look; a stranger is never looked up.',
             details: 'POST /api/v1/ask (multipart image, image data URL or image_url) asks a question. POST /api/v1/ocr reads text locally first. POST /api/v1/compare runs the same image through local OCR and up to three AI hints. POST /api/v1/ui-check takes html, url or a screenshot and returns findings. GET /api/v1/benchmarks aggregates compare samples without subjects. Face detection/blur are open at POST /api/v1/faces/detect and /blur; matching needs separate signed consent per purpose (verify, find, cast, library). A person is the openvibe.vision session or a Network user token; a service token needs vision.ask, vision.ocr, vision.compare, vision.ui.check or vision.face.cast.match.',
             sections: [
                 { title: 'Start here', links: [
@@ -107,7 +107,7 @@ function createDiscoveryRoutes(ctx) {
             sections: [
                 { title: 'Pages', pages: pages.map((p) => ({ url: p.path, title: p.title, text: p.text })) },
                 { title: 'Rules', pages: [
-                    { url: '/people/privacy', title: 'Faces with consent', text: 'Face matching is local and limited to a separately consented purpose. Public AI text never describes a person\'s looks.' },
+                    { url: '/people/privacy', title: 'Faces with consent', text: 'Face matching is local and limited to a separately consented purpose. AI may describe people; a stranger is never looked up.' },
                     { url: '/developers', title: 'No stored general images', text: 'General answers store a sha256, the media type and the cleaned text, never the image bytes. Only an opt-in face library keeps encrypted uploads.' },
                 ] },
             ],

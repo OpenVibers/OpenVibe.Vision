@@ -4,7 +4,6 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { loadImage } = require('../vision/images');
 const { check } = require('../vision/ui-check');
-const { cleanAnswer } = require('../text/no-looks');
 const { sameOrigin } = require('./principal');
 
 const VERSION = '2025-06-18';
@@ -48,7 +47,7 @@ function toolResult(id, value) {
             { type: 'image', mimeType: 'image/png', data: value.image.slice('data:image/png;base64,'.length) },
         ], structuredContent: { count: value.count }, isError: false });
     }
-    return rpcResult(id, { content: [{ type: 'text', text: cleanAnswer(JSON.stringify(value)) }], structuredContent: value, isError: false });
+    return rpcResult(id, { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value, isError: false });
 }
 function toolError(id, message) { return rpcResult(id, { content: [{ type: 'text', text: message }], isError: true }); }
 function owner(req) { return req.principal && req.principal.kind === 'user' ? req.principal.subject : null; }

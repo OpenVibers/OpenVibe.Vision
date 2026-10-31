@@ -11,7 +11,6 @@
  * The provider and model Vision reports are always the ones AI says answered, never the hint.
  */
 const { serviceAuth } = require('openvibe-contracts');
-const { cleanAnswer } = require('../text/no-looks');
 
 class AiError extends Error {
     constructor(status, code, detail) {
@@ -25,7 +24,7 @@ class AiError extends Error {
 
 const TASK_PROMPTS = {
     ask: 'Answer the question about the image precisely. Say when the image does not show the answer. If the answer is a count, give the number and name what you counted.',
-    describe: 'Describe the image for someone who cannot see it: the scene, the objects, any visible text, and what is happening. Do not describe anyone\'s appearance.',
+    describe: 'Describe the image for someone who cannot see it: the scene, the objects, any visible text, and what is happening, people included.',
     identify: 'Identify what the image shows. Give the most specific answer the picture supports, and say what is uncertain.',
     count: 'Count what the question asks about. Give the number first, then list each item you counted.',
     translate: 'Read the visible text and translate it into the target language. Give the original text, then the translation.',
@@ -33,7 +32,7 @@ const TASK_PROMPTS = {
     compare: 'Answer the question about the image precisely, for a side-by-side comparison. Say when the image does not show the answer.',
 };
 
-const NO_LOOKS = 'Never describe a person\'s body, face, hair, clothing, age, race, gender, disability or guessed identity. Never identify, name or recognise a person, and never use a face as identity. If the answer would need that, say you cannot describe people\'s appearance and answer about the rest of the picture.';
+const NO_IDENTITY = 'Never identify, name or recognise a person, and never use a face as identity.';
 
 function textOf(content) {
     if (typeof content === 'string') return content;
@@ -127,7 +126,7 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
             // `model` is documented as a hint; AI's router picks and reports. Including it keeps the request honest.
             ...(model ? { model: String(model).slice(0, 120) } : {}),
             messages: [
-                { role: 'system', content: `You are OpenVibe.Vision's image reader. ${prompt}\n${NO_LOOKS}\nAnswer plainly and briefly; never invent details the picture does not show.` },
+                { role: 'system', content: `You are OpenVibe.Vision's image reader. ${prompt}\n${NO_IDENTITY}\nAnswer plainly and briefly; never invent details the picture does not show.` },
                 { role: 'user', content: [
                     { type: 'text', text: asked || 'Describe this image.' },
                     { type: 'image_url', image_url: { url: dataUrl } },
@@ -144,7 +143,7 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
         const x = out.x_openvibe || {};
         const usage = out.usage || {};
         return {
-            text: cleanAnswer(raw),
+            text: raw,
             model: String(out.model || (x.model || '') || (model || 'openvibe')).slice(0, 120),
             provider: String(x.provider || '').slice(0, 80) || null,
             route: 'default.chat',
@@ -153,7 +152,7 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
             runId: x.run_id || null,
             synthetic: Boolean(x.synthetic),
             usage: { tokens_in: Number(usage.prompt_tokens) || 0, tokens_out: Number(usage.completion_tokens) || 0 },
-            reason: `OpenVibe.AI routed a ${task} run to ${x.provider || 'its pool'}${out.model ? `:${out.model}` : ''}; the answer is cleaned by noLooks`,
+            reason: `OpenVibe.AI routed a ${task} run to ${x.provider || 'its pool'}${out.model ? `:${out.model}` : ''}; the answer is stored as written`,
             target: target || null,
         };
     }
@@ -161,4 +160,4 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
     return { enabled, answer, offeredModels, call, tokenClient };
 }
 
-module.exports = { createAi, AiError, TASK_PROMPTS, NO_LOOKS };
+module.exports = { createAi, AiError, TASK_PROMPTS, NO_IDENTITY };
