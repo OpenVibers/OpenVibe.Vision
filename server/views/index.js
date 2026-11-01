@@ -46,7 +46,7 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
             chips: [{ label: 'Read', href: '/read' }, { label: 'Find', href: '/find' }, { label: 'Watch', href: '/watch' }, { label: 'People', href: '/people' }],
             motif: motif(),
         },
-        proof: [{ value: '0.0000', label: 'USD for a local read' }, { value: '8', label: 'tools, one place' }],
+        proof: [{ value: 'Free', label: 'a read on our own engines' }, { value: '8', label: 'tools, one place' }],
         scenes: [
             {
                 title: 'A receipt, read for nothing',
