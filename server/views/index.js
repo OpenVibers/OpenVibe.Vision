@@ -12,12 +12,24 @@ const { pickBlock, foldAround } = require('../render/short');
 
 const MODEL_LABEL = (a) => (a && a.model ? `${a.provider ? `${a.provider}:` : ''}${a.model}` : 'the local engine');
 
+/**
+ * The hero's scene (MOTION-1): what Vision does, shown being done. Three tabs, Read, Find and Watch; the ghost cursor
+ * (openvibe-shared motion.js) taps each in turn and its pane shows the result: a receipt's total read on this host for
+ * nothing, your own photo found by words, a delivery spotted on a camera still. Without motion (or JavaScript) it rests
+ * on Read. Drawn in HTML and CSS only (public/css/vision.css .vi-sc-*), every colour from the room's tokens.
+ */
 function motif() {
-    return `<div class="vi-race" aria-hidden="true">
-<svg class="vi-race-img" viewBox="0 0 420 260" preserveAspectRatio="none"><rect x="1" y="1" width="418" height="258" rx="18" fill="none" stroke="currentColor" stroke-opacity=".25"/><path d="M70 190 L150 120 L230 150 L350 70" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="70" cy="190" r="6" fill="currentColor"/><circle cx="150" cy="120" r="6" fill="currentColor"/><circle cx="230" cy="150" r="6" fill="currentColor"/><circle cx="350" cy="70" r="6" fill="currentColor"/></svg>
-<span class="vi-race-box vi-race-a"><b>local OCR</b><small>0.0000 USD · 41 ms</small></span>
-<span class="vi-race-box vi-race-b"><b>vision model</b><small>0.0007 USD · 1.2 s</small></span>
-<span class="vi-race-tag">same image, two boxes</span>
+    const tab = (n, label, on) => `<span class="vi-sc-tab${on ? ' is-on' : ''}" data-ov-ghost-step="${n}">${label}</span>`;
+    return `<div class="vi-scene" role="img" aria-label="Vision reads a receipt's total, finds your photo by words and spots a delivery on a camera" data-ov-ghost>
+<div class="vi-sc-tabs">${tab(1, 'Read', true)}${tab(2, 'Find')}${tab(3, 'Watch')}</div>
+<div class="vi-sc-panes">
+<div class="vi-sc-pane vi-sc-read"><div class="vi-sc-receipt"><b>OPENVIBE MARKET</b><span>Oat milk<i>3.40</i></span><span>Bread<i>2.10</i></span><span class="vi-sc-total">TOTAL<i>5.50</i></span></div>
+<p class="vi-sc-answer"><b>TOTAL 5.50</b><small>read on this host · $0 · 38 ms</small></p></div>
+<div class="vi-sc-pane vi-sc-find"><p class="vi-sc-query">the red bike at the beach</p><div class="vi-sc-grid"><span class="vi-sc-ph vi-sc-ph-a"></span><span class="vi-sc-ph vi-sc-ph-b is-hit"><i></i></span><span class="vi-sc-ph vi-sc-ph-c"></span><span class="vi-sc-ph vi-sc-ph-d"></span></div>
+<p class="vi-sc-answer"><b>Your photo, July 12</b><small>only your pictures are searched</small></p></div>
+<div class="vi-sc-pane vi-sc-watch"><div class="vi-sc-cam"><span class="vi-sc-door"></span><span class="vi-sc-box"><em>package</em></span><span class="vi-sc-rec">CAM 1 · 14:02</span></div>
+<p class="vi-sc-answer"><b>A delivery at the door</b><small>told you at 14:02 · nobody identified</small></p></div>
+</div>
 </div>`;
 }
 
