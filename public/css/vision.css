@@ -56,18 +56,6 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .vi-try { padding: 20px; border-radius: 20px; background: color-mix(in srgb, var(--room-accent) 7%, var(--bg-card, #0f1729)); border: 1px solid var(--border, #1f2d47); }
 
 /* The aperture: two engines racing on one image */
-.vi-race { position: relative; width: min(100%, 440px); aspect-ratio: 420 / 260; margin: 0 auto; color: var(--room-accent); }
-.vi-race-img { position: absolute; inset: 0; width: 100%; height: 100%; }
-html.ov-motion .vi-race-img path { stroke-dasharray: 420; animation: vi-draw 1.8s cubic-bezier(.2,.7,.2,1) both; }
-@keyframes vi-draw { from { stroke-dashoffset: 420; } }
-.vi-race-box { position: absolute; display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; border: 2px solid currentColor; background: color-mix(in srgb, var(--bg-card, #0f1729) 88%, transparent); color: var(--text-primary, #e6edf7); font-size: .82rem; }
-.vi-race-box b { color: var(--room-strong); }
-.vi-race-box small { font-variant-numeric: tabular-nums; color: var(--text-muted, #7386a3); }
-.vi-race-a { left: 6%; top: 12%; border-color: color-mix(in srgb, var(--room-accent) 55%, transparent); }
-.vi-race-b { right: 6%; bottom: 14%; border-color: var(--room-accent); }
-html.ov-motion .vi-race-box { animation: vi-pop .6s cubic-bezier(.2,.9,.3,1.2) both; } html.ov-motion .vi-race-b { animation-delay: .35s; }
-@keyframes vi-pop { from { opacity: 0; scale: .85; } }
-.vi-race-tag { position: absolute; left: 50%; bottom: -4px; translate: -50% 0; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 800; color: var(--room-on); background: var(--room-fill); white-space: nowrap; }
 
 /* Scenes' demos */
 .vi-demo-receipt { display: grid; gap: 4px; width: min(100%, 300px); margin: 0 auto; padding: 18px 20px; border-radius: 6px; background: #fbfaf6; color: #222; font: 500 .9rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 12px 30px rgba(0, 0, 0, .25); }
@@ -99,9 +87,6 @@ html.ov-motion .vi-race-box { animation: vi-pop .6s cubic-bezier(.2,.9,.3,1.2) b
 .vi-warnings li { padding: 8px 12px; border-radius: 10px; font-size: .86rem; background: color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent); }
 
 @media (max-width: 860px) { .vi-two-col { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 759px) { .sc-room-pic .vi-race-box, .sc-room-pic .vi-race-tag { display: none; } }
-@media (prefers-reduced-motion: reduce) { .vi-race-img path, .vi-race-box { animation: none !important; } }
-html[data-ov-motion=reduced] .vi-race-img path, html[data-ov-motion=reduced] .vi-race-box { animation: none !important; }
 
 /* Vision v2: the task grid, the network row and the consent demo */
 .vi-tasks { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
@@ -339,3 +324,48 @@ html[data-ov-motion=reduced] .vi-race-img path, html[data-ov-motion=reduced] .vi
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td:empty { display: none; }
 }
+
+/* ── The hero's scene (MOTION-1): Read, Find, Watch; the ghost cursor taps each, its pane shows the result. ─────────── */
+.vi-scene { width: min(100%, 400px); margin: 0 auto; display: grid; gap: 10px; padding: 12px; border-radius: 18px; border: 1px solid var(--ovk-line, rgba(255,255,255,.1)); background: var(--ovk-panel, rgba(255,255,255,.03)); }
+.vi-sc-tabs { display: flex; gap: 6px; }
+.vi-sc-tab { flex: 1; padding: 7px 0; border-radius: 999px; text-align: center; font-size: 13px; font-weight: 700; color: var(--ovk-muted, #7386a3); border: 1px solid var(--ovk-line, rgba(255,255,255,.1)); transition: color .2s ease, background .2s ease, border-color .2s ease; }
+.vi-sc-tab.is-on, .vi-sc-tab[data-ov-ghost-on] { color: var(--room-on, #fff); background: var(--room-fill, var(--room-accent)); border-color: transparent; }
+.vi-scene:has([data-ov-ghost-on]) .vi-sc-tab.is-on:not([data-ov-ghost-on]) { color: var(--ovk-muted, #7386a3); background: none; border-color: var(--ovk-line, rgba(255,255,255,.1)); }
+.vi-sc-panes { display: grid; }
+.vi-sc-pane { grid-area: 1 / 1; display: grid; gap: 8px; align-content: start; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility .35s; }
+.vi-sc-read, .vi-scene:has([data-ov-ghost-step="1"][data-ov-ghost-on]) .vi-sc-read,
+.vi-scene:has([data-ov-ghost-step="2"][data-ov-ghost-on]) .vi-sc-find,
+.vi-scene:has([data-ov-ghost-step="3"][data-ov-ghost-on]) .vi-sc-watch { opacity: 1; visibility: visible; }
+.vi-scene:has([data-ov-ghost-step="2"][data-ov-ghost-on]) .vi-sc-read,
+.vi-scene:has([data-ov-ghost-step="3"][data-ov-ghost-on]) .vi-sc-read { opacity: 0; visibility: hidden; }
+.vi-sc-answer { margin: 0; display: grid; gap: 1px; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, var(--room-accent) 12%, transparent); }
+.vi-sc-answer b { font-size: 14px; color: var(--text-primary, #e6edf7); }
+.vi-sc-answer small { font-size: 12px; color: var(--ovk-muted, #7386a3); }
+/* Read: a receipt, its total boxed. */
+.vi-sc-receipt { display: grid; gap: 4px; padding: 12px 14px; border-radius: 6px; background: #f4f1ea; color: #2b2a27; font: 600 12.5px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; transform: rotate(-1.5deg); }
+.vi-sc-receipt b { text-align: center; letter-spacing: .08em; }
+.vi-sc-receipt span { display: flex; justify-content: space-between; }
+.vi-sc-receipt i { font-style: normal; }
+.vi-sc-total { margin-top: 2px; padding: 2px 4px; outline: 2px solid var(--room-accent); outline-offset: 2px; border-radius: 3px; }
+/* Find: four of your photos, one a match. */
+.vi-sc-query { margin: 0; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--ovk-line, rgba(255,255,255,.12)); font-size: 13px; color: var(--text-primary, #e6edf7); }
+.vi-sc-query::before { content: "⌕ "; color: var(--ovk-muted, #7386a3); }
+.vi-sc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.vi-sc-ph { position: relative; aspect-ratio: 1; border-radius: 8px; }
+.vi-sc-ph-a { background: linear-gradient(#7aa7d9 55%, #6b8f5a 55%); }
+.vi-sc-ph-b { background: linear-gradient(#f2c27b 45%, #4f9fd1 45% 70%, #e9d7a8 70%); }
+.vi-sc-ph-b i { position: absolute; left: 30%; bottom: 18%; width: 40%; height: 22%; border-radius: 40% 40% 10% 10%; background: #d6453d; }
+.vi-sc-ph-c { background: linear-gradient(160deg, #2f3d5c, #8a6db3); }
+.vi-sc-ph-d { background: radial-gradient(circle at 50% 60%, #c98a4b 0 28%, #3b4a3a 29%); }
+.vi-sc-ph.is-hit { outline: 3px solid var(--room-accent); outline-offset: 2px; }
+/* Watch: a camera still, a package boxed. */
+.vi-sc-cam { position: relative; aspect-ratio: 16 / 8; border-radius: 10px; overflow: hidden; background: linear-gradient(#3a4256 62%, #565044 62%); }
+.vi-sc-door { position: absolute; left: 38%; top: 12%; width: 22%; height: 50%; border-radius: 4px 4px 0 0; background: #6d4a33; box-shadow: inset -6px 0 0 #5b3d2a; }
+.vi-sc-box { position: absolute; left: 63%; top: 50%; width: 16%; height: 22%; background: #b98b55; outline: 2px solid var(--room-accent); outline-offset: 3px; }
+.vi-sc-box em { position: absolute; left: -3px; top: -22px; padding: 1px 6px; border-radius: 4px; font: 700 10.5px/1.4 system-ui, sans-serif; font-style: normal; color: var(--room-on, #fff); background: var(--room-fill, var(--room-accent)); white-space: nowrap; }
+.vi-sc-rec { position: absolute; left: 8px; top: 6px; font: 700 10px/1 ui-monospace, monospace; color: #fff; opacity: .8; }
+.vi-sc-rec::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: #ef4444; }
+@media (prefers-reduced-motion: reduce) { .vi-sc-pane, .vi-sc-tab { transition: none; } }
+/* On a phone the room's picture is a faint corner decoration (room.css); the scene is content, so it joins the flow
+   under the hero's buttons, full strength. */
+@media (max-width: 759px) { .sc-room-pic:has(.vi-scene) { position: static; z-index: auto; width: auto; opacity: 1; pointer-events: auto; margin-top: 8px; } }
