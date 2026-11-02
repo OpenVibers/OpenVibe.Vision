@@ -10,7 +10,6 @@
  */
 const { AiError } = require('./ai');
 const { forModel } = require('./images');
-const { cleanAnswer } = require('../text/no-looks');
 
 class VisionError extends Error {
     constructor(status, code, detail, extra = {}) {
@@ -127,7 +126,7 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
             ...(chosen.runId ? { run_id: chosen.runId } : {}),
             ...(chosen.usage ? { usage: chosen.usage } : {}),
         };
-        const text = chosen.engine === 'local' ? chosen.text : cleanAnswer(chosen.text);
+        const text = chosen.text;
         const saved = await store.saveAnswer({
             subject, requester, task: t, question: q || null, mode, image,
             text, answer, model: chosen.model, provider: chosen.provider, route: chosen.route, reason: answer.reason,
@@ -149,7 +148,7 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
             const status = chosen.errorCode === 'vision.ai_unavailable' || chosen.errorCode === 'vision.ocr_unavailable' ? 503 : 502;
             throw new VisionError(status, chosen.errorCode || 'vision.ocr_failed', chosen.detail || 'no local OCR text was found');
         }
-        const text = chosen.engine === 'local' ? chosen.text : cleanAnswer(chosen.text);
+        const text = chosen.text;
         const answer = {
             engine: chosen.engine, model: chosen.model, provider: chosen.provider, route: chosen.route,
             reason: chosen.reason || (chosen.engine === 'local' ? 'the local OCR reader answered first' : 'the local OCR reader found no text, so OpenVibe.AI was asked'),
@@ -188,7 +187,7 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
             }
             for (const hint of hints) {
                 const a = await aiResult(image, t, { question: q, model: hint });
-                samples.push({ engine: 'ai', requestedModel: hint, model: a.model, provider: a.provider, route: a.route, ok: a.ok, text: a.ok ? cleanAnswer(a.text) : null, costUsd: a.costUsd, ms: a.ms, errorCode: a.errorCode });
+                samples.push({ engine: 'ai', requestedModel: hint, model: a.model, provider: a.provider, route: a.route, ok: a.ok, text: a.ok ? a.text : null, costUsd: a.costUsd, ms: a.ms, errorCode: a.errorCode });
             }
         }
 
@@ -196,7 +195,7 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
         return {
             ...saved.answer,
             engine: 'compare',
-            compare: saved.samples.map((x) => ({ ...x, text: x.text == null ? null : (x.engine === 'local' ? x.text : cleanAnswer(x.text)) })),
+            compare: saved.samples.map((x) => ({ ...x, text: x.text == null ? null : (x.text) })),
             local: { ok: local.ok, model: local.model, confidence: local.confidence == null ? null : local.confidence, error_code: local.errorCode || null },
             reason: `${saved.samples.length} engines ran on the same image; local OCR is free and AI runs report their own cost and latency`,
         };

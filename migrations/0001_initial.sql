@@ -17,7 +17,7 @@ CREATE TABLE vision_answers (
     image_sha256  text COLLATE "C" NOT NULL,
     image_mime    text COLLATE "C" NOT NULL,
     image_bytes   integer NOT NULL,
-    text          text,                                       -- the noLooks-cleaned answer
+    text          text,                                       -- the AI answer, stored as written
     answer        jsonb NOT NULL DEFAULT '{}'::jsonb,         -- model details, OCR lines, compare rows
     model         text COLLATE "C",
     provider      text COLLATE "C",

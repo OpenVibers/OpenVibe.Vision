@@ -61,14 +61,13 @@ const { boot, check, done } = require('./helpers/boot');
             assert.strictEqual(ok.json().answer.engine, 'local');
         });
 
-        await check('the AI answer is passed through noLooks even when the model names looks', async () => {
+        await check('the AI answer describes people as written', async () => {
             t.aiServer.setText('A shirtless man in a kitchen laughs.');
             const r = await t.get('/api/v1/ask', { as: user, multipart: { fields: { task: 'describe', question: 'What happens?' }, image: png } });
             assert.strictEqual(r.status, 201);
-            assert.match(r.json().answer.text, /without describing anyone's appearance/);
-            assert.ok(!/shirtless/.test(r.json().answer.text));
+            assert.strictEqual(r.json().answer.text, 'A shirtless man in a kitchen laughs.');
             const sent = t.aiServer.requests.filter((x) => x.path === '/v1/chat/completions').pop();
-            assert.match(JSON.stringify(sent.body), /Never describe a person's body/);
+            assert.doesNotMatch(JSON.stringify(sent.body), /Never describe a person's body/);
         });
 
         await check('POST /compare runs local and AI, reports requested vs answered model, cost and latency', async () => {

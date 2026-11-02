@@ -28,15 +28,15 @@ const { parseReceipt } = require('../server/vision/network-tools');
             const byImage = await t.get('/api/v1/find', { as: owner, json: { image } });
             assert.strictEqual(byImage.json().answer.results[0].item_id, 'photo-1');
         });
-        await check('alt text sends noLooks and cleans the answer', async () => {
+        await check('alt text describes people as written', async () => {
             t.aiServer.setText('A shirtless man holds a bicycle.');
             const r = await t.get('/api/v1/alt', { as: owner, json: { image } });
             assert.strictEqual(r.status, 201, r.text);
-            assert.ok(!/shirtless/.test(r.json().answer.alt_text));
+            assert.strictEqual(r.json().answer.alt_text, 'A shirtless man holds a bicycle.');
             assert.ok(r.json().answer.editable);
             assert.strictEqual(r.json().answer.receipt.engine, 'routed');
             const sent = t.aiServer.requests.filter((x) => x.path === '/v1/chat/completions').at(-1);
-            assert.match(JSON.stringify(sent.body), /Never describe a person's body/);
+            assert.doesNotMatch(JSON.stringify(sent.body), /Never describe a person's body/);
         });
         await check('receipt parser and local route return structured lines and receipt', async () => {
             assert.deepStrictEqual(parseReceipt('MARKET\n2 x Apples 3.40\nTOTAL 3.40').items[0], { name: 'Apples', qty: 2, price: 3.4 });
