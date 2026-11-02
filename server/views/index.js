@@ -8,7 +8,7 @@
 const { esc, time } = require('../render/html');
 const sc = require('openvibe-shared/showcase');
 // The short home (the owner's rule, 2026-10-30): pick blocks and folds.
-const { pickBlock, pickRules, foldAround } = require('../render/short');
+const { pickBlock, foldAround } = require('../render/short');
 
 const MODEL_LABEL = (a) => (a && a.model ? `${a.provider ? `${a.provider}:` : ''}${a.model}` : 'the local engine');
 
@@ -105,7 +105,6 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
     return {
         body: `<div class="vi-wrap vi-home" id="vi-home">${html}</div>`,
         // The rule that shows the picked scene of the pick block: one per scene, written for this page.
-        inlineStyles: [`@supports selector(:has(*)){@media (max-width:640px){${pickRules('scenes', arts.map((_, i) => `vi-scene-${i}`))}}}`],
     };
 }
 
