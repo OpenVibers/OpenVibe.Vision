@@ -9,11 +9,11 @@
   "port": "5130",
   "domain": "openvibe.vision",
   "contracts": "openvibe-contracts v0.240.0",
-  "sdk": "openvibe-sdk v0.74.0",
+  "sdk": "openvibe-sdk v0.81.0",
   "shared": "openvibe-shared v4.93.2",
   "packages": [
     "openvibe-contracts v0.240.0",
-    "openvibe-sdk v0.74.0",
+    "openvibe-sdk v0.81.0",
     "openvibe-shared v4.93.2"
   ],
   "capabilities": [
