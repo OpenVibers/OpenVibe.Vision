@@ -30,7 +30,11 @@ const { assertPublicUrl, isPrivateAddress, loadImage } = require('../server/visi
             const wrongAud = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.ui.check'], audience: 'openvibe.design' });
             const r = await t.get('/api/v1/ui-check', { bearer: wrongAud, json: { html: '<p>x</p>' } });
             assert.strictEqual(r.status, 401);
-            const forged = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.ui.check'] }).slice(0, -2) + 'aa';
+            // A character inside the signature changed: always a forgery. Changing the last two could leave the signature's
+            // bytes as they were (base64url's last character carries 2 bits), about one run in 256.
+            const good = t.network.serviceToken({ sub: 'svc:design', cap: ['vision.ui.check'] });
+            const at = good.lastIndexOf('.') + 10;
+            const forged = good.slice(0, at) + (good[at] === 'A' ? 'B' : 'A') + good.slice(at + 1);
             assert.strictEqual((await t.get('/api/v1/ui-check', { bearer: forged, json: { html: '<p>x</p>' } })).status, 401);
         });
 
