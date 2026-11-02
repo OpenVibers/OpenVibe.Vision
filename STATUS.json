@@ -10,11 +10,11 @@
   "domain": "openvibe.vision",
   "contracts": "openvibe-contracts v0.240.0",
   "sdk": "openvibe-sdk v0.74.0",
-  "shared": "openvibe-shared v4.88.0",
+  "shared": "openvibe-shared v4.91.0",
   "packages": [
     "openvibe-contracts v0.240.0",
     "openvibe-sdk v0.74.0",
-    "openvibe-shared v4.88.0"
+    "openvibe-shared v4.91.0"
   ],
   "capabilities": [
     "vision.image.ask",
@@ -88,5 +88,5 @@
     "deploy files"
   ],
   "deployment": "not deployed: the unit and nginx vhost are deploy/systemd/openvibe-vision.service and deploy/nginx/openvibe.vision.conf",
-  "updated": "2026-11-01"
+  "updated": "2026-11-02"
 }
