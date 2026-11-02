@@ -4,7 +4,7 @@
   "stage": "product",
   "code": true,
   "wave": "W21",
-  "plan": "OpenVibe.Vision v1 (plan 2026-10-28 §5.8): ask a picture, compare models side by side, OCR with a local engine first, and the UI check as an API other services call; §5.8b adds faces with separate purpose-scoped consent; wave 1 adds the six network tools",
+  "plan": "OpenVibe.Vision v1 (plan 2026-10-28 §5.8): ask a picture, compare models side by side, OCR with a local engine first, and the UI check as an API other services call; §5.8b adds faces with separate purpose-scoped consent; F1 (L24) adds a camera owner's own familiar-face libraries; wave 1 adds the six network tools",
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9, Tesseract 5, sharp, onnxruntime-node (YuNet/SFace), Transformers.js (CLIP/DETR)",
   "port": "5130",
   "domain": "openvibe.vision",
@@ -39,7 +39,9 @@
     "vision.benchmarks.read"
   ],
   "outboundCapabilities": [
-    "ai.run.create"
+    "ai.run.create",
+    "network.consent.read",
+    "network.notifications.push"
   ],
   "capabilitiesRegistered": false,
   "serviceManifestRegistered": false,
@@ -53,6 +55,7 @@
     "No looks: public AI text is passed through noLooks; an answer that names looks is replaced by a neutral sentence",
     "Local face detection and blur through YuNet without templates or tracking; detect/blur are open and rate-limited",
     "Consent-scoped SFace matching: verify (1:1), self search in own Vision uploads, adult cast rosters and region-gated private library grouping",
+    "F1 familiar faces: a camera owner's own library (face_libraries, names, encrypted crops and templates); strict regions check Network's face.recognize registry before a template exists, a private link covers the rest, a match reads only that library, and delete removes templates and crops",
     "Encrypted face templates, opt-in uploads and vectors (AES-256-GCM); immediate template/tag erasure on opt-out and a daily three-year retention job",
     "Network tools: routed alt text, owner-scoped CLIP index/find, Tesseract-first receipts, product vectors, DETR watch and moments, each with a receipt",
     "MCP on /mcp with RFC 9728 protected-resource metadata, token challenges and route-equivalent capability checks",
@@ -75,6 +78,7 @@
   "deployed": false,
   "features": [
     "ask a picture",
+    "familiar faces for a camera owner's own cameras",
     "local-first OCR",
     "OpenVibe.AI routed answers",
     "model compare with cost and latency",

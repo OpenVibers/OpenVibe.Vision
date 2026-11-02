@@ -42,7 +42,7 @@ async function startNetwork() {
     const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' });
     const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' });
-    const st = { users: new Map(), byUsername: new Map(), codes: new Map(), refresh: new Map(), requests: [], tokenRequests: [], down: false };
+    const st = { users: new Map(), byUsername: new Map(), codes: new Map(), refresh: new Map(), requests: [], tokenRequests: [], down: false, faceAllowed: new Set(), faceChecks: [], notifications: [] };
     let issuer = null;
     let nextUserId = 1;
 
@@ -119,7 +119,26 @@ async function startNetwork() {
         }
 
         if (url.pathname === '/internal/identity/resolve-batch' && req.method === 'POST') return json(200, { results: {} });
-        if (url.pathname === '/internal/notifications/push' && req.method === 'POST') return json(200, { ok: true });
+        if (url.pathname === '/internal/notifications/push' && req.method === 'POST') {
+            const auth = String(req.headers.authorization || '');
+            const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+            const v = token ? serviceAuth.verifyServiceToken(token, { publicKey: publicPem, issuer, audience: 'openvibe.network' }) : { ok: false };
+            if (!v.ok || !Array.isArray(v.claims.cap) || !v.claims.cap.includes('network.notifications.push')) return problem(json, 403, 'token.forbidden', 'network.notifications.push is not granted');
+            const body = JSON.parse(raw.toString('utf8') || '{}');
+            st.notifications.push(body);
+            return json(200, { ok: true });
+        }
+        if (url.pathname === '/internal/consent/check' && req.method === 'POST') {
+            const auth = String(req.headers.authorization || '');
+            const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+            const v = token ? serviceAuth.verifyServiceToken(token, { publicKey: publicPem, issuer, audience: 'openvibe.network' }) : { ok: false };
+            if (!v.ok || !Array.isArray(v.claims.cap) || !v.claims.cap.includes('network.consent.read')) return problem(json, 403, 'token.forbidden', 'network.consent.read is not granted');
+            const body = JSON.parse(raw.toString('utf8') || '{}');
+            st.faceChecks.push(body);
+            const allowed = {};
+            for (const subject of body.subjects || []) allowed[subject] = st.faceAllowed.has(subject);
+            return json(200, { purpose: body.purpose, allowed, checked_at: new Date().toISOString(), feature: body.feature });
+        }
 
         return json(404, { error: 'not found' });
     });
@@ -134,6 +153,7 @@ async function startNetwork() {
         },
         issueCode(user, challenge) { const code = `code_${crypto.randomBytes(8).toString('hex')}`; st.codes.set(code, { user, challenge }); return code; },
         setDown(v) { st.down = v; },
+        allowFace(subject, on = true) { if (on) st.faceAllowed.add(subject); else st.faceAllowed.delete(subject); },
         close: srv.close,
     };
 }
