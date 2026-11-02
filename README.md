@@ -23,7 +23,7 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. Face 
   cost and latency; `GET /api/v1/benchmarks` aggregates them with no subject or answer text.
 - **The UI check as an API.** `POST /api/v1/ui-check` is what Design's Arena will call, with a service token holding
   `vision.ui.check`. It also works for a signed-in person and, for HTML/URL/screenshot, anonymously.
-- **Consent-scoped faces, AI that may describe people.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. AI text is stored as written, people included;
+- **Consent-scoped faces, no looks in AI text.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. Public AI text is passed through `noLooks`;
   an answer that names a person's looks is replaced by a neutral sentence.
 - **Privacy.** General answers store no image bytes: a sha256, media type and byte count are stored. Opt-in face uploads, vectors and templates are encrypted and private. Answers, compare samples, UI checks and every face row are exported and erased with the person's account.
 - **Not in v1.** Public Arena leaderboards, video, computer-use benchmarks and OpenCV jobs on Run (v2/v3). v1 has no
@@ -45,6 +45,17 @@ The four signed text versions are exposed by `GET /api/v1/faces/consents/text`. 
 | `POST /api/v1/faces/media`, `GET /api/v1/faces/media/:id`, `POST /api/v1/faces/find` | Person only; encrypted own Vision uploads, owner-only links and self-search matches. Media objects are deferred until a source-owner grant and open-time access check exist. |
 | `POST /api/v1/faces/cast/match` | Live service token with `vision.face.cast.match` and signed `channel_id` claim; compares only that channel's enrolled roster. Requires on-stream notice from Live. Person can inspect their own tags at `GET /api/v1/faces/cast/tags`. |
 | `POST /api/v1/faces/library/cluster`, `GET /api/v1/faces/library/groups`, `POST /api/v1/faces/library/correct` | Person only, separate opt-in and allowed region. Unknown groups have no label. Corrections: `exclude`, `merge`, `split`; switching off erases groups. |
+| `GET/POST /api/v1/faces/libraries`, `GET/PATCH/DELETE /api/v1/faces/libraries/:id` | Person only; the owner's own familiar-face library and its camera ids/region. |
+| `POST /api/v1/faces/libraries/:id/enroll`, `/match`, `GET /people`, `PATCH/DELETE /people/:personId` | Person only; name a crop, match only this library, rename/mute or delete a name. Strict mode answers `pending_consent` with no template until consent. |
+| `POST /api/v1/faces/libraries/:id/people/:personId/request`, `/consent-check`, `POST /api/v1/faces/consent-requests/:token/accept` · `/deny` | Person only; the private consent link and the registry re-check. |
+
+### Familiar faces (F1)
+
+A camera owner turns on Familiar faces for a camera and names the people that camera sees. `POST /api/v1/faces/libraries` creates the owner's own library (`camera_ids`, `region`), `POST /api/v1/faces/libraries/:id/enroll` names a face from the crop the camera saw, and `POST /api/v1/faces/libraries/:id/match` compares only that library. `DELETE /api/v1/faces/libraries/:id` and `DELETE /api/v1/faces/libraries/:id/people/:personId` delete the templates and the encrypted crops at once.
+
+The region is the camera's own setting. `VISION_FACE_STRICT_REGIONS` (default `US-IL,US-TX,US-WA,EU,EU-*,GB,UK,UNKNOWN`) puts a library in strict mode: the named person's `face.recognize` choice is checked in Network's consent registry, and until it allows the `library` feature the person is `pending_consent` with no template. The owner can re-issue a private link (`POST …/people/:personId/request`), the person accepts it at `POST /api/v1/faces/consent-requests/:token/accept` (or denies it), and `POST …/consent-check` re-reads the registry for pending people. A name can be muted (still matched, alerts held). A library whose region is outside the strict list (or explicitly `region_mode: "open"`) names a face freely.
+
+F1 adds `face_libraries`, `face_library_people`, `face_library_crops` and `face_consent_requests` in `migrations/0005_face_libraries.sql`, and `face_templates.library_id`. The templates and crops use the same AES-256-GCM key handling as every other face row; a crop is stored only so a strict-mode template can be made after consent, and a delete removes it. `VISION_FACE_CONSENT_REQUEST_DAYS` (default 14) sets the link lifetime.
 
 `face_consents`, `face_templates`, `face_media`, `face_tags` and `face_clusters` are created by `migrations/0003_faces.sql`. A daily job (off in `VISION_DRILL`) deletes inactive templates at three years since last use and revoked consent audit rows within one year of purpose end. ADR-033 export and account deletion include all five tables. The account export carries encrypted template and upload ciphertext; it does not expose the server key.
 
@@ -227,7 +238,7 @@ node scripts/proof.js       # local OCR + a planted UI overflow, no network and 
 
 The tests use a mock Network, a mock OpenVibe.AI and local image/page fixtures: migration, SSO and readiness, the
 API and its capability guards, local OCR and its fallback, compare and benchmark aggregation, the UI check (a
-planted overflow, cut-off line, low contrast, overlap and layering fault), describing people, pages/cache, account
+planted overflow, cut-off line, low contrast, overlap and layering fault), noLooks, pages/cache, account
 export/deletion, the image SSRF guard, and faces with a fake ONNX model (all four consent gates, opt-out erasure,
 cast-roster-only matching, AES-GCM at rest, the retention job, the region gate and ADR-033 export/deletion).
 
@@ -247,7 +258,7 @@ All six tools are JSON APIs. Successful `answer` objects carry a `receipt` with 
 
 | Room call | Capability | Notes |
 |---|---|---|
-| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt.write` | Routed VLM through OpenVibe.AI; short editable `alt_text`; no looks filter in the prompt or output; AI may describe people. |
+| Pics, Media, Chat → `POST /api/v1/alt` | `vision.alt.write` | Routed VLM through OpenVibe.AI; short editable `alt_text`; noLooks in the prompt and output. |
 | Media, Search → `POST /api/v1/index`, `GET /api/v1/find?q=`, `POST /api/v1/find` | `vision.media.find` | Owner's verified user token; index `{item_id,image,result_url?}`; search by text or image. Owner is in every index read predicate. |
 | Food → `POST /api/v1/receipt` | `vision.receipt.read` | Tesseract first; `fallback=true` permits routed VLM if local extraction is incomplete. |
 | Deals → `POST /api/v1/product` | `vision.product.match` | CLIP vector and routed product description; `allow_rerank=true` permits another routed VLM call to rerank candidate offers. |
@@ -264,6 +275,6 @@ Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEA
 
 <!-- versions:start -->
 - openvibe-contracts: v0.240.0
-- openvibe-sdk: v0.77.0
-- openvibe-shared: v4.55.0
+- openvibe-sdk: v0.74.0
+- openvibe-shared: v4.93.2
 <!-- versions:end -->

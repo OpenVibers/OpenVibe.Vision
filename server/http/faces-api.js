@@ -8,7 +8,7 @@ const { sameOrigin } = require('./principal');
 const { loadImage } = require('../vision/images');
 const { VisionError } = require('../vision/service');
 
-function createFaceApi({ config, principal, faces, fetchImpl }) {
+function createFaceApi({ config, principal, faces, faceLibraries, fetchImpl }) {
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
     const imageField = (req, res, next) => upload.single('image')(req, res, next);
@@ -25,8 +25,8 @@ function createFaceApi({ config, principal, faces, fetchImpl }) {
         const b = req.body || {};
         return loadImage({ file: req.file && req.file.buffer, image: b.image, imageUrl: b.image_url, config, fetchImpl });
     }
-    const run = (fn) => async (req, res) => {
-        try { return res.json(await fn(req, res)); }
+    const run = (fn, status = 200) => async (req, res) => {
+        try { return res.status(status).json(await fn(req, res)); }
         catch (err) {
             if (err instanceof VisionError) return problem(res, err.status, err.code, err.detail);
             if (err && /^image\./.test(err.code || '')) return problem(res, err.code === 'image.too_large' ? 413 : 400, `vision.${err.code.replace('.', '_')}`, err.message);
@@ -73,6 +73,26 @@ function createFaceApi({ config, principal, faces, fetchImpl }) {
         }
         return next();
     }, run(async (req) => faces.castMatch(req.body.channel, (await image(req)).buffer, req.body.media_ref)));
+    // ── F1: a camera owner's own familiar-face library ─────
+    // The camera's region decides the mode; strict mode names a person without a template until their consent is
+    // in Network's registry (or they accept the private link). A match reads only the library it names.
+    r.get('/libraries', person, run((req) => faceLibraries.list(req.principal.subject).then((libraries) => ({ count: libraries.length, libraries }))));
+    r.post('/libraries', person, run((req) => faceLibraries.create(req.principal.subject, req.body || {}), 201));
+    r.get('/libraries/:id', person, run((req) => faceLibraries.get(req.principal.subject, req.params.id)));
+    r.patch('/libraries/:id', person, run((req) => faceLibraries.patch(req.principal.subject, req.params.id, req.body || {})));
+    r.delete('/libraries/:id', person, run((req) => faceLibraries.remove(req.principal.subject, req.params.id)));
+    r.post('/libraries/:id/enroll', person, imageField, run(async (req) => {
+        const im = await image(req);
+        return faceLibraries.enroll(req.principal.subject, req.params.id, im.buffer, { ...(req.body || {}), image_mime: im.mime });
+    }));
+    r.post('/libraries/:id/match', person, imageField, run(async (req) => faceLibraries.match(req.principal.subject, req.params.id, (await image(req)).buffer)));
+    r.get('/libraries/:id/people', person, run((req) => faceLibraries.people(req.principal.subject, req.params.id)));
+    r.patch('/libraries/:id/people/:personId', person, run((req) => faceLibraries.patchPerson(req.principal.subject, req.params.id, req.params.personId, req.body || {})));
+    r.delete('/libraries/:id/people/:personId', person, run((req) => faceLibraries.removePerson(req.principal.subject, req.params.id, req.params.personId)));
+    r.post('/libraries/:id/people/:personId/request', person, run((req) => faceLibraries.requestAgain(req.principal.subject, req.params.id, req.params.personId)));
+    r.post('/libraries/:id/consent-check', person, run((req) => faceLibraries.checkPending(req.principal.subject, req.params.id)));
+    r.post('/consent-requests/:token/accept', person, run((req) => faceLibraries.acceptRequest(req.principal.subject, req.params.token, req.body || {})));
+    r.post('/consent-requests/:token/deny', person, run((req) => faceLibraries.denyRequest(req.principal.subject, req.params.token)));
     r.post('/library/cluster', person, run((req) => faces.cluster(req.principal.subject, req.body?.region)));
     r.get('/library/groups', person, run((req) => faces.groups(req.principal.subject)));
     r.post('/library/correct', person, run((req) => faces.correction(req.principal.subject, req.body?.action, req.body?.ids)));

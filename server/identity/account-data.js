@@ -11,10 +11,15 @@
 const { createAccountData, TOPICS } = require('openvibe-sdk/account-data');
 
 const TABLES = [
+    // F1 familiar-face libraries. Crops and requests go before the people and the library they hang under.
+    { table: 'face_library_crops', subject: 'owner', value: (usr) => usr, file: 'face-library-crops.json', erase: 'delete' },
+    { table: 'face_consent_requests', subject: 'owner', value: (usr) => usr, file: 'face-consent-requests.json', erase: 'delete' },
+    { table: 'face_templates', subject: 'subject', value: (usr) => usr, file: 'face-templates.json', erase: 'delete' },
+    { table: 'face_library_people', subject: 'owner', value: (usr) => usr, file: 'face-library-people.json', erase: 'delete' },
+    { table: 'face_libraries', subject: 'owner', value: (usr) => usr, file: 'face-libraries.json', erase: 'delete' },
     { table: 'face_tags', subject: 'subject', value: (usr) => usr, file: 'face-tags.json', erase: 'delete' },
     { table: 'face_clusters', subject: 'subject', value: (usr) => usr, file: 'face-clusters.json', erase: 'delete' },
     { table: 'face_media', subject: 'subject', value: (usr) => usr, file: 'face-media.json', erase: 'delete' },
-    { table: 'face_templates', subject: 'subject', value: (usr) => usr, file: 'face-templates.json', erase: 'delete' },
     { table: 'face_consents', subject: 'subject', value: (usr) => usr, file: 'face-consents.json', erase: 'delete' },
     { table: 'vision_private_index', subject: 'owner', value: (usr) => usr, file: 'private-index.json', erase: 'delete' },
     // Compare samples before their answer, so the deletion counts them itself rather than through the FK cascade.
