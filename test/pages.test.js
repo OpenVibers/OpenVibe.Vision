@@ -124,6 +124,10 @@ const PLANTED = '<style>body{background:#fff;color:#999}.wide{width:1600px}</sty
             assert.ok(llms.text.includes('OpenVibe.Vision'));
             assert.match(llms.text, /separate consent/);
             assert.doesNotMatch(llms.text, /No face recognition/);
+            // AGT-5: own pages at their Markdown twins, the API as it is, ## Optional last.
+            assert.ok(llms.text.includes('(https://openvibe.vision/index.md)') && llms.text.includes('(https://openvibe.vision/people/privacy.md)'));
+            assert.ok(llms.text.includes('(https://openvibe.vision/api/v1/models)') && llms.text.includes('(https://openvibe.vision/sitemap.xml)'));
+            assert.ok(llms.text.includes('\n## Optional\n') && llms.text.lastIndexOf('\n## ') === llms.text.indexOf('\n## Optional\n'), 'Optional is last');
         });
     } finally {
         await t.close();
