@@ -22,14 +22,17 @@ class VisionError extends Error {
     }
 }
 
-const TASKS = new Set(['ask', 'describe', 'identify', 'count', 'translate', 'ocr', 'compare']);
+const TASKS = new Set(['ask', 'describe', 'identify', 'count', 'translate', 'ocr', 'compare', 'meal', 'surroundings', 'plant', 'landmark', 'components']);
+// VIS-6 wave 2: tasks whose prompt says everything (server/vision/ai.js TASK_PROMPTS), so they need no question. Each
+// always goes to the routed model: the local OCR reader cannot answer them.
+const PROMPTED = new Set(['meal', 'surroundings', 'plant', 'landmark', 'components']);
 const READ_RE = /\b(read|say|says|said|text|word|words|label|labels|sign|signs|receipt|receipts|handwriting|ocr|written|print|printed|translate|translation|caption|menu|address|number)\b/i;
 
 function isReadTask(task, question) {
     if (task === 'ocr') return true;
     // Local OCR can read the words, but it cannot translate them: a translate task (or a question that asks for a
     // translation) goes to the model when auto mode is on. mode=local still returns the reading, and says so.
-    if (task === 'translate') return false;
+    if (task === 'translate' || PROMPTED.has(task)) return false;
     if (/\btranslate|translation\b/i.test(String(question || ''))) return false;
     return task === 'ask' && READ_RE.test(String(question || ''));
 }
@@ -87,11 +90,12 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
      */
     async function ask({ requester, subject = null, image, task = 'ask', question = '', mode = 'auto', lang = null, model = null }) {
         const t = asTask(task);
-        if (!t || t === 'compare') throw new VisionError(400, 'vision.invalid_task', 'task must be ask, describe, identify, count, translate or ocr');
+        if (!t || t === 'compare') throw new VisionError(400, 'vision.invalid_task', 'task must be ask, describe, identify, count, translate, ocr, meal, surroundings, plant, landmark or components');
         if (mode !== 'auto' && mode !== 'local' && mode !== 'ai') throw new VisionError(400, 'vision.invalid_mode', 'mode must be auto, local or ai');
         const started = Date.now();
         const q = String(question || '').trim().slice(0, 2000);
-        if (t !== 'describe' && t !== 'ocr' && !q && mode !== 'local') throw new VisionError(400, 'vision.question_required', 'ask, identify, count and translate need a question');
+        if (t !== 'describe' && t !== 'ocr' && !PROMPTED.has(t) && !q && mode !== 'local') throw new VisionError(400, 'vision.question_required', 'ask, identify, count and translate need a question');
+        if (PROMPTED.has(t) && mode === 'local') throw new VisionError(400, 'vision.needs_model', `${t} needs the routed model: the local OCR reader cannot answer it`);
 
         let local = null;
         if (mode !== 'ai' && (isReadTask(t, q) || mode === 'local')) {

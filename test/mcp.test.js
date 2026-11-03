@@ -18,7 +18,10 @@ const rpc = (method, params = {}, id = 1) => ({ jsonrpc: '2.0', id, method, para
             assert.strictEqual(init.status, 200, init.text);
             assert.strictEqual(init.json().result.serverInfo.name, 'openvibe-vision');
             const list = await t.get('/mcp', { json: rpc('tools/list') });
-            assert.strictEqual(list.json().result.tools.length, 11);
+            assert.strictEqual(list.json().result.tools.length, 16);
+            for (const name of ['vision.meal', 'vision.describe_surroundings', 'vision.identify_plant', 'vision.identify_landmark', 'vision.screenshot_components']) {
+                assert.ok(list.json().result.tools.some((x) => x.name === name), `VIS-6 tool ${name}`);
+            }
             assert.ok(list.json().result.tools.some((x) => x.name === 'vision.blur_faces'));
             assert.ok(!list.json().result.tools.some((x) => /enrol|verify|cast/.test(x.name)));
         });
@@ -42,6 +45,16 @@ const rpc = (method, params = {}, id = 1) => ({ jsonrpc: '2.0', id, method, para
             assert.strictEqual(r.status, 200);
             assert.strictEqual(r.json().result.isError, true);
             assert.match(r.json().result.content[0].text, /image data URL only/);
+        });
+
+        await check('VIS-6: a prompted tool runs its task through the routed model and saves it as that task', async () => {
+            const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+            const r = await t.get('/mcp', { bearer: t.network.userToken(owner), json: rpc('tools/call', { name: 'vision.identify_plant', arguments: { image: tiny } }) });
+            assert.strictEqual(r.status, 200, r.text);
+            assert.strictEqual(r.json().result.isError, false, r.text);
+            assert.strictEqual(r.json().result.structuredContent.answer.task, 'plant');
+            const sent = t.aiServer.requests.filter((x) => x.path === '/v1/chat/completions').pop();
+            assert.match(JSON.stringify(sent.body.messages[0].content), /scientific name/);
         });
 
         await check('an owner may read their own UI check, while another owner cannot', async () => {

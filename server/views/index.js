@@ -139,7 +139,7 @@ function ask({ signedIn = false, ai = false, problem = null, values = {} } = {})
     const v = { task: 'ask', mode: 'auto', ...values };
     return `<div class="vi-wrap" id="vi-ask">
 <header class="vi-page-h"><p class="vi-kicker">Ask a picture</p><h1>What does the image show?</h1>
-<p class="vi-lede">Describe, read, translate, identify or count. A read question goes to the local OCR reader first; the answer says which engine answered and why. Face matching has separate consent controls on <a href="/people">People</a>.</p></header>
+<p class="vi-lede">Describe, read, translate, identify or count; name a plant or a place, list what is in a meal, describe your surroundings, or break a screenshot into components. A read question goes to the local OCR reader first; the answer says which engine answered and why. Face matching has separate consent controls on <a href="/people">People</a>.</p></header>
 ${problem ? `<p class="vi-note is-bad" role="alert">${esc(problem)}</p>` : ''}
 ${signedIn ? '' : `<p class="vi-note">Ask saves the answer to an account. <a href="/auth/login?next=%2Fask">Sign in with OpenVibe</a> to ask; <a href="/ocr">OCR</a> and the <a href="/ui-check">UI check</a> work without one.</p>`}
 ${ai ? '' : '<p class="vi-note is-warm">OpenVibe.AI is not configured on this host. A read question still runs on the local OCR engine.</p>'}
@@ -147,7 +147,8 @@ ${ai ? '' : '<p class="vi-note is-warm">OpenVibe.AI is not configured on this ho
 ${imageFields({ values: v })}
 <div class="vi-field-grid">
 <label class="vi-field"><span>Task</span><select name="task">
-${[['ask', 'Ask a question'], ['describe', 'Describe the image'], ['identify', 'Identify what it is'], ['count', 'Count something'], ['translate', 'Read and translate'], ['ocr', 'Read the text']].map(([k, label]) => `<option value="${k}"${v.task === k ? ' selected' : ''}>${label}</option>`).join('')}
+${[['ask', 'Ask a question'], ['describe', 'Describe the image'], ['identify', 'Identify what it is'], ['count', 'Count something'], ['translate', 'Read and translate'], ['ocr', 'Read the text'],
+    ['meal', 'What is in this meal'], ['surroundings', 'Describe my surroundings'], ['plant', 'Name this plant'], ['landmark', 'Name this place'], ['components', 'Screenshot to components']].map(([k, label]) => `<option value="${k}"${v.task === k ? ' selected' : ''}>${label}</option>`).join('')}
 </select></label>
 <label class="vi-field"><span>Mode</span><select name="mode">
 ${[['auto', 'Auto: cheapest engine first'], ['local', 'Local only: no model call'], ['ai', 'AI directly']].map(([k, label]) => `<option value="${k}"${v.mode === k ? ' selected' : ''}>${label}</option>`).join('')}
