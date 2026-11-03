@@ -10,6 +10,7 @@ module.exports = {
     api: "/api/v1",
     docs: "/developers",
     mcp: { url: "/mcp" },
+    openapi: '/openapi.json',
     policy: {
         auth: ["none", "Network OIDC"],
     },
