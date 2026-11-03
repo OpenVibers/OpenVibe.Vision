@@ -45,6 +45,30 @@ const { boot, check, done } = require('./helpers/boot');
             assert.ok(t.aiServer.requests.some((x) => x.path === '/v1/chat/completions' && JSON.stringify(x.body).includes('image_url')));
         });
 
+        await check('VIS-6: every task is saved as itself, and the prompted tasks need no question', async () => {
+            // 0001 allowed only ask/describe/ocr/compare: a translate, identify or count answer failed its insert (0006).
+            for (const task of ['translate', 'identify', 'count']) {
+                const r = await t.get('/api/v1/ask', { as: user, multipart: { fields: { task, question: 'What is it?', mode: 'ai' }, image: png } });
+                assert.strictEqual(r.status, 201, `${task}: ${r.text}`);
+                assert.strictEqual(r.json().answer.task, task);
+            }
+            const prompts = {
+                meal: /estimated portion[\s\S]*rough calorie/, surroundings: /someone who cannot see them[\s\S]*never who they are/,
+                plant: /scientific name[\s\S]*poisonous/, landmark: /city and country[\s\S]*Never identify a person/, components: /ARIA role/,
+            };
+            for (const [task, re] of Object.entries(prompts)) {
+                const r = await t.get('/api/v1/ask', { as: user, multipart: { fields: { task }, image: png } });
+                assert.strictEqual(r.status, 201, `${task}: ${r.text}`);
+                assert.strictEqual(r.json().answer.task, task);
+                assert.strictEqual(r.json().answer.answer.engine, 'ai', `${task} goes to the model`);
+                const sent = t.aiServer.requests.filter((x) => x.path === '/v1/chat/completions').pop();
+                assert.match(JSON.stringify(sent.body.messages[0].content), re, `${task} carries its prompt`);
+            }
+            const local = await t.get('/api/v1/ask', { as: user, multipart: { fields: { task: 'meal', mode: 'local' }, image: png } });
+            assert.strictEqual(local.status, 400);
+            assert.strictEqual(local.json().code, 'vision.needs_model');
+        });
+
         await check('POST /describe is the plan\'s operation name for the same ask, and a data URL works', async () => {
             const r = await t.get('/api/v1/describe', { as: user, json: { question: 'What is this?', image: `data:image/png;base64,${png.toString('base64')}` } });
             assert.strictEqual(r.status, 201, r.text);

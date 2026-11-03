@@ -134,7 +134,10 @@ client `vision`. No new AI capability, no provider key, no direct paid provider.
 token responds with a `WWW-Authenticate` challenge pointing to that metadata. The tools are `vision.ask_image`,
 `vision.read_text`, `vision.translate_sign`, `vision.find_similar`, `vision.search_my_media`,
 `vision.describe_clip`, `vision.detect_objects`, `vision.blur_faces`, `vision.check_ui`,
-`vision.compare_models` and `vision.get_job`. Face enrolment, verification, cast matching and consent mutation
+`vision.compare_models` and `vision.get_job`, and five that run one prompted task each through the routed model
+(VIS-6; also `task=` on `POST /api/v1/ask`, no question needed): `vision.meal` (`meal`: foods, ingredients, portions,
+rough calories), `vision.describe_surroundings` (`surroundings`), `vision.identify_plant` (`plant`),
+`vision.identify_landmark` (`landmark`) and `vision.screenshot_components` (`components`). Face enrolment, verification, cast matching and consent mutation
 are available only through their person or Live-specific API routes, never through MCP.
 
 When configured with Events and a Network client secret, successful owner results publish `vision.result.ready`

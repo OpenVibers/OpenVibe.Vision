@@ -30,6 +30,12 @@ const TASK_PROMPTS = {
     translate: 'Read the visible text and translate it into the target language. Give the original text, then the translation.',
     ocr: 'Read every visible piece of text in the image, verbatim, preserving line breaks and reading order. Do not summarize and do not add anything that is not written.',
     compare: 'Answer the question about the image precisely, for a side-by-side comparison. Say when the image does not show the answer.',
+    // VIS-6 wave 2. Each answers without a question; a question narrows it.
+    meal: 'List each food and drink you can see. For each: its likely ingredients, an estimated portion (grams, or a household measure such as a cup) and a rough calorie estimate. Then give a total. Say plainly that these are estimates from a photo, and name what a photo cannot show (oil, butter, sugar, sauces, what is underneath). If there is no food, say so.',
+    surroundings: 'Describe these surroundings for someone who cannot see them, to help them find their way: what is straight ahead and to each side, steps, kerbs, doors, obstacles and hazards, people and moving things (what they are doing, never who they are), and any signs or text. Most important first, in short sentences. Say how sure you are when the picture is unclear.',
+    plant: 'Identify the plant: its common name and its scientific name, how sure you are, and the features you went by (leaves, flowers, fruit, bark, habit). When the picture supports it, say whether any part is commonly poisonous to people or pets. If the picture is not of a plant, say so.',
+    landmark: 'Identify the landmark, building or place: its name, city and country, how sure you are, and the features you went by. If it is not a recognisable landmark, say so and describe the kind of place instead. Never identify a person in the picture.',
+    components: 'Break this screenshot of an app or web page into its interface components, as a nested outline from the page down: each region (header, navigation, main content, sidebar, footer, dialog) and inside it each component (heading, button, link, text field, checkbox, list, card, tab, image, icon), with its visible label or text. After each component, the HTML element or ARIA role that fits it. End with anything that looks broken: overlapping, cut off, unreadable or unlabelled.',
 };
 
 const NO_IDENTITY = 'Never identify, name or recognise a person, and never use a face as identity.';

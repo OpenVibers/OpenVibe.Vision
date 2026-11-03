@@ -14,6 +14,11 @@ const TOOLS = Object.freeze([
     { name: 'vision.ask_image', description: 'Ask about an image. Anonymous requests use local OCR only.', inputSchema: input({ ...image, question: { type: 'string' }, mode: { type: 'string', enum: ['auto', 'local', 'ai'] } }) },
     { name: 'vision.read_text', description: 'Read visible text with local OCR.', inputSchema: input({ ...image, lang: { type: 'string' } }) },
     { name: 'vision.translate_sign', description: 'Translate visible sign text through a routed model.', inputSchema: input({ ...image, lang: { type: 'string' } }) },
+    { name: 'vision.meal', description: 'List the foods in a photo of a meal, with likely ingredients, estimated portions and rough calories.', inputSchema: input(image) },
+    { name: 'vision.describe_surroundings', description: 'Describe surroundings for someone who cannot see them: what is ahead, obstacles, signs. Never who people are.', inputSchema: input(image) },
+    { name: 'vision.identify_plant', description: 'Name a plant (common and scientific), with confidence and whether it is commonly poisonous.', inputSchema: input(image) },
+    { name: 'vision.identify_landmark', description: 'Name a landmark, building or place, with confidence. Never identifies a person.', inputSchema: input(image) },
+    { name: 'vision.screenshot_components', description: 'Break a screenshot of an app or page into its interface components, with the HTML element or ARIA role for each.', inputSchema: input(image) },
     { name: 'vision.find_similar', description: 'Search your private visual index by image.', inputSchema: input({ image: image.image }, ['image']) },
     { name: 'vision.search_my_media', description: 'Search your private visual index by words.', inputSchema: input({ query: { type: 'string' } }, ['query']) },
     { name: 'vision.describe_clip', description: 'Find scene changes and moments in your own frames.', inputSchema: input({ frames: { type: 'array', items: { type: 'object' } }, prompts: { type: 'array', items: { type: 'string' } } }, ['frames']) },
@@ -27,6 +32,8 @@ const TOOLS = Object.freeze([
 const ACCESS = Object.freeze({
     'vision.ask_image': ['vision.image.ask', 'local'], 'vision.read_text': ['vision.text.read', 'anonymous'],
     'vision.translate_sign': ['vision.image.ask'], 'vision.find_similar': ['vision.media.find', 'person'],
+    'vision.meal': ['vision.image.ask'], 'vision.describe_surroundings': ['vision.image.ask'], 'vision.identify_plant': ['vision.image.ask'],
+    'vision.identify_landmark': ['vision.image.ask'], 'vision.screenshot_components': ['vision.image.ask'],
     'vision.search_my_media': ['vision.media.find', 'person'], 'vision.describe_clip': ['vision.video.moments', 'person'],
     'vision.detect_objects': ['vision.camera.watch', 'person'], 'vision.blur_faces': ['vision.face.blur', 'anonymous'],
     'vision.check_ui': ['vision.ui.check', 'anonymous'], 'vision.compare_models': ['vision.model.compare'],
@@ -34,8 +41,15 @@ const ACCESS = Object.freeze({
 });
 const EVENT_PATH = Object.freeze({
     'vision.ask_image': '/ask', 'vision.read_text': '/ocr', 'vision.translate_sign': '/ask',
+    'vision.meal': '/ask', 'vision.describe_surroundings': '/ask', 'vision.identify_plant': '/ask', 'vision.identify_landmark': '/ask', 'vision.screenshot_components': '/ask',
     'vision.find_similar': '/find', 'vision.search_my_media': '/find', 'vision.describe_clip': '/moments',
     'vision.detect_objects': '/watch', 'vision.check_ui': '/ui-check', 'vision.compare_models': '/compare',
+});
+
+// VIS-6 wave 2: each tool is one of the service's prompted tasks (server/vision/ai.js TASK_PROMPTS).
+const PROMPTED_TOOL = Object.freeze({
+    'vision.meal': 'meal', 'vision.describe_surroundings': 'surroundings', 'vision.identify_plant': 'plant',
+    'vision.identify_landmark': 'landmark', 'vision.screenshot_components': 'components',
 });
 
 function rpcResult(id, value) { return { jsonrpc: '2.0', id, result: value }; }
@@ -81,6 +95,8 @@ async function invoke(name, args, req, ctx) {
         }
         case 'vision.read_text': return await vision.ocr({ ...request, image: await load(), lang: args.lang, fallback: false });
         case 'vision.translate_sign': return { answer: await vision.ask({ ...request, image: await load(), task: 'translate', question: 'Translate the visible sign text.', mode: 'ai', lang: args.lang }) };
+        case 'vision.meal': case 'vision.describe_surroundings': case 'vision.identify_plant': case 'vision.identify_landmark': case 'vision.screenshot_components':
+            return { answer: await vision.ask({ ...request, image: await load(), task: PROMPTED_TOOL[name], question: '', mode: 'ai' }) };
         case 'vision.find_similar': return { answer: await networkTools.find(subject, await loadPrivate()) };
         case 'vision.search_my_media': {
             if (typeof args.query !== 'string' || !args.query.trim() || args.query.length > 500) throw new Error('query must contain 1–500 characters');
