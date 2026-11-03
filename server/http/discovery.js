@@ -68,6 +68,9 @@ function createDiscoveryRoutes(ctx) {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsTxt({
             name: SITE_NAME,
             summary: 'OpenVibe.Vision answers questions about a picture, reads text locally and checks UI faults. Local face detection and blur need no identity; self verification, self search, cast tagging and library grouping each require separate consent. AI may describe people, including how they look; a stranger is never looked up.',
+            // AGT-5: own pages link their Markdown twins (openvibe-shared 4.108.0); ## Optional is what an agent may skip.
+            markdown: true,
+            base: site,
             details: 'POST /api/v1/ask (multipart image, image data URL or image_url) asks a question. POST /api/v1/ocr reads text locally first. POST /api/v1/compare runs the same image through local OCR and up to three AI hints. POST /api/v1/ui-check takes html, url or a screenshot and returns findings. GET /api/v1/benchmarks aggregates compare samples without subjects. Face detection/blur are open at POST /api/v1/faces/detect and /blur; matching needs separate signed consent per purpose (verify, find, cast, library). A person is the openvibe.vision session or a Network user token; a service token needs vision.ask, vision.ocr, vision.compare, vision.ui.check or vision.face.cast.match.',
             sections: [
                 { title: 'Start here', links: [
@@ -85,15 +88,15 @@ function createDiscoveryRoutes(ctx) {
                 { title: 'Machine-readable', links: [
                     { title: 'Benchmark results (JSON)', url: abs('/api/v1/benchmarks') },
                     { title: 'Model hints (JSON)', url: abs('/api/v1/models') },
-                    { title: 'Sitemap', url: abs('/sitemap.xml') },
-                    { title: 'Full text for language models', url: abs('/llms-full.txt') },
-                    { title: 'Release metadata (JSON)', url: abs('/release.json') },
                 ] },
-                { title: 'Elsewhere', links: [
-                    { title: 'OpenVibe.AI', url: 'https://ai.openvibe.services', note: 'the routing, quotas and provenance every model answer uses' },
-                    { title: 'OpenVibe.Design', url: 'https://openvibe.design', note: 'the Arena that calls the UI check' },
-                    { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, tokens and staff roles' },
-                ] },
+            ],
+            optional: [
+                { title: 'Sitemap', url: abs('/sitemap.xml') },
+                { title: 'Full text for language models', url: abs('/llms-full.txt') },
+                { title: 'Release metadata (JSON)', url: abs('/release.json') },
+                { title: 'OpenVibe.AI', url: 'https://ai.openvibe.services', note: 'the routing, quotas and provenance every model answer uses' },
+                { title: 'OpenVibe.Design', url: 'https://openvibe.design', note: 'the Arena that calls the UI check' },
+                { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, tokens and staff roles' },
             ],
         }));
     });
