@@ -8,11 +8,11 @@
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9, Tesseract 5, sharp, onnxruntime-node (YuNet/SFace), Transformers.js (CLIP/DETR)",
   "port": "5130",
   "domain": "openvibe.vision",
-  "contracts": "openvibe-contracts v0.240.0",
+  "contracts": "openvibe-contracts v0.289.1",
   "sdk": "openvibe-sdk v0.82.0",
   "shared": "openvibe-shared v4.109.2",
   "packages": [
-    "openvibe-contracts v0.240.0",
+    "openvibe-contracts v0.289.1",
     "openvibe-sdk v0.82.0",
     "openvibe-shared v4.109.2"
   ],
@@ -92,5 +92,5 @@
     "deploy files"
   ],
   "deployment": "not deployed: the unit and nginx vhost are deploy/systemd/openvibe-vision.service and deploy/nginx/openvibe.vision.conf",
-  "updated": "2026-11-03"
+  "updated": "2026-11-05"
 }
