@@ -421,6 +421,20 @@ function createPageRoutes(ctx) {
         }
     });
 
+    r.post('/review/:id/reveal', async (req, res) => {
+        if (!staffPage(req, res)) return;
+        if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        const row = await store.reviewWithReport(String(req.params.id || ''));
+        if (!row) return notFound(req, res);
+        try {
+            const revealed = await review.reveal(row.id, req.viewer.subject);
+            const updated = await store.reviewWithReport(row.id);
+            return page(req, res, { title: 'Review one image', cache: null, body: raw(reviewViews.item({ review: updated || row, revealed })) });
+        } catch (err) {
+            return page(req, res, { title: 'Review one image', cache: null, body: raw(reviewViews.item({ review: row, problem: reviewProblem(err) })) }, err instanceof VisionError ? err.status : 502);
+        }
+    });
+
     // ── Developers ───────────────────────────────────────────
     r.get('/developers', (req, res) => page(req, res, {
         index: true, cache: PUBLIC_CACHE, title: 'The OpenVibe.Vision API',

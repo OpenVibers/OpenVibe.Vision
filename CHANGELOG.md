@@ -4,6 +4,10 @@ What changed in OpenVibe.Vision, newest first.
 
 ## Unreleased — VIS-6
 
+- Review follow-up: the image pass is fail-closed (harmless text can no longer clear an image it could not judge;
+  only sex_acts/minor_sexual text may answer, otherwise 503), `preview_url` is https on a first-party host only, and
+  the operator's page withholds category-2/3 pictures until a logged 60-second Media evidence view. Adds
+  `vision_review_reveals` and `object_app`/`media_object_id`/`media_app` on a review; Contracts v0.294.0.
 - Added the unsafe-image review: exactly three categories in plain words (`fine` including nudity, `sex_acts` never
   public, `minor_sexual` always blocked and reported to the operator), `POST /api/v1/review` for Media, Live and
   Community, a staff queue at `/review`, one review page with the same three choices and the operator report at

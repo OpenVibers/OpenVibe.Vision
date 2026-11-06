@@ -167,6 +167,7 @@ must hold the route's capability (403 `capability.denied`).
 | `POST /api/v1/review` | `{ image_url }`, an image, or `{ text }` plus `{ object_type, object_id, owner_subject?, preview_url? }`; returns `{ category, plain_words, action, public, status, review, report? }`. Exactly one of `fine`, `sex_acts`, `minor_sexual`. |
 | `GET /api/v1/review?category=&status=` | the operator's queue (staff or `vision.review.read`); `GET /api/v1/review/:id` is the owner's or staff's single row. |
 | `POST /api/v1/review/:id/decide` | staff or `vision.review.decide`: `{ category }` must be one of the same three. |
+| `POST /api/v1/review/:id/reveal` | staff only: one 60-second Media operator view, logged on the report. |
 | `GET /api/v1/review/reports?status=` | the operator report rows made by category 3. |
 
 Example — the call Design's Arena makes:
@@ -214,12 +215,25 @@ same rule Live's auto-clip guard uses: nudity alone is fine; sex acts and porn a
 act is the hard line. An image is classified by OpenVibe.AI with one strict JSON question; the text answer can make
 the result more severe but never less. Category 3 always creates one `vision_operator_reports` row. The staff pages
 `/review`, `/review/:id` and `/review/reports` show the queue and let an operator decide one of the same three
-categories; a decision writes `reviewed_by`/`reviewed_at` and dismisses a report the operator overrules. Child-safety
-hash matching (Cloudflare's CSAM Scanning Tool, NCMEC lists) is a separate service and not this language model.
+categories; a decision writes `reviewed_by`/`reviewed_at` and dismisses a report the operator overrules. A decision on
+a Media object also calls Media's `review-decision` route, which releases or places Media's evidence hold.
 
-No image bytes are stored. The review row keeps the caller's object reference, a sha256, the category, the plain
-words, the action, the model provenance and an optional preview URL. A review does not publish a `vision.result.ready`
-event; the caller already has the row.
+An image the reviewer cannot judge is never cleared by harmless text: if the image pass is unavailable or returns no
+usable JSON, text may answer only when it is already `sex_acts` or `minor_sexual`; otherwise the answer is a 503 and
+the caller keeps the object pending. `preview_url` must be `https` on `openvibe.vision`, `openvibe.network` or
+`openvibe.media` (the origins its CSP already trusts); anything else is a 400. The page escapes it in `src` and `href`.
+
+Category 2 and 3 pictures are withheld from the operator by default. The queue shows no picture for category 3 and
+blurs a category-2 thumbnail; the detail page shows a blurred or withheld placeholder, not the bytes. "Show the
+picture" asks Media for a 60-second `media.object.review.view` URL (a separate signature purpose that opens a
+quarantine), logs the operator and time in `vision_review_reveals`, and shows that one picture. The warning on the
+page says the picture is evidence for the report and must not be saved or shared. Child-safety hash matching
+(Cloudflare's CSAM Scanning Tool, NCMEC lists) is a separate service and not this language model.
+
+No image bytes are stored. The review row keeps the caller's object reference (`object_app`, and the Media
+`media_object_id`/`media_app` when there is one), a sha256, the category, the plain words, the action, the model
+provenance and an optional first-party preview URL. A review does not publish a `vision.result.ready` event; the
+caller already has the row.
 
 ## Pages
 

@@ -14,7 +14,12 @@ const assert = require('assert');
 const { boot, check, done } = require('./helpers/boot');
 
 (async () => {
-    const t = await boot();
+    const mediaView = {
+        available: () => true,
+        decide: async () => ({ ok: true }),
+        operatorView: async ({ objectId }) => ({ url: `https://openvibe.media/o/${objectId}?exp=1&sig=x`, expires_at: new Date(Date.now() + 60_000).toISOString() }),
+    };
+    const t = await boot({ mediaView });
     const staff = t.network.addUser('ops', { role: 'admin' });
     const person = t.network.addUser('kim');
     const other = t.network.addUser('sam');
@@ -78,14 +83,81 @@ const { boot, check, done } = require('./helpers/boot');
             assert.strictEqual(r.json().report.status, 'open');
         });
 
+        await check('the image pass failing never clears an image: only severe text may answer, else 503', async () => {
+            t.aiServer.setFail(true);
+            let r = await t.get('/api/v1/review', { bearer: reviewToken(), multipart: { fields: { text: 'a harmless caption' }, image: png } });
+            assert.deepStrictEqual([r.status, r.json().code], [503, 'vision.review_unavailable']);
+            r = await t.get('/api/v1/review', { bearer: reviewToken(), multipart: { fields: { text: 'a naked child in the frame' }, image: png } });
+            assert.strictEqual(r.status, 201, r.text);
+            assert.strictEqual(r.json().category, 'minor_sexual');
+            r = await t.get('/api/v1/review', { bearer: reviewToken(), multipart: { fields: { text: 'pornographic footage' }, image: png } });
+            assert.strictEqual(r.json().category, 'sex_acts');
+            r = await t.get('/api/v1/review', { bearer: reviewToken(), multipart: { image: png } });
+            assert.strictEqual(r.status, 503);
+            t.aiServer.setFail(false);
+            t.aiServer.setText('I cannot help with that');
+            r = await t.get('/api/v1/review', { bearer: reviewToken(), multipart: { fields: { text: 'a harmless caption' }, image: png } });
+            assert.deepStrictEqual([r.status, r.json().code], [503, 'vision.review_unavailable']);
+            t.aiServer.setText(null);
+        });
+
+        await check('preview_url is https on a first-party host only; javascript: and http: are 400', async () => {
+            for (const bad of ['javascript:alert(1)', 'http://openvibe.media/o/med_x', 'https://evil.example/x']) {
+                const r = await t.get('/api/v1/review', { bearer: reviewToken(), json: { text: 'a harmless caption', preview_url: bad } });
+                assert.deepStrictEqual([r.status, r.json().code], [400, 'vision.invalid_preview_url'], bad);
+            }
+            const ok = await t.get('/api/v1/review', { bearer: reviewToken(), json: { text: 'a harmless caption', preview_url: 'https://openvibe.media/o/med_x' } });
+            assert.strictEqual(ok.status, 201, ok.text);
+            assert.strictEqual(ok.json().review.preview_url, 'https://openvibe.media/o/med_x');
+        });
+
+        await check('operators reveal one picture: staff only, hidden/quarantined only, logged on the report', async () => {
+            t.aiServer.setText('{"sexual": true, "nudity": true, "minor": true, "sex_acts": true, "reason": "a child in a sexual image"}');
+            const made = await t.get('/api/v1/review', {
+                bearer: reviewToken(),
+                multipart: { fields: { object_type: 'media.object', object_id: 'med_01JAB2C3D4E5F6G7H8J9K0MNPQ', object_app: 'live', media_object_id: 'med_01JAB2C3D4E5F6G7H8J9K0MNPQ', media_app: 'live' }, image: png },
+            });
+            const id = made.json().review.id;
+            assert.strictEqual((await t.get(`/api/v1/review/${id}/reveal`, { as: person, method: 'POST', json: {} })).status, 403);
+            const r = await t.get(`/api/v1/review/${id}/reveal`, { as: staff, method: 'POST', json: {} });
+            assert.strictEqual(r.status, 200, r.text);
+            assert.match(r.json().view.url, /^https:\/\/openvibe\.media\/o\/med_/);
+            assert.strictEqual(r.json().view.reveal.operator_subject, staff.subject);
+            const read = await t.get(`/api/v1/review/${id}`, { as: staff });
+            assert.strictEqual(read.json().review.reveals.length, 1);
+            assert.strictEqual(read.json().review.reveals[0].kind, 'media_operator_view');
+
+            const fine = await t.get('/api/v1/review', { bearer: reviewToken(), json: { text: 'a grocery receipt', object_type: 'media.object', object_id: 'med_fine_2' } });
+            const no = await t.get(`/api/v1/review/${fine.json().review.id}/reveal`, { as: staff, method: 'POST', json: {} });
+            assert.deepStrictEqual([no.status, no.json().code], [409, 'vision.review_not_hidden']);
+        });
+
+        await check('the detail page withholds a category-3 picture until Show, and logs the reveal', async () => {
+            t.aiServer.setText('{"sexual": true, "minor": true, "sex_acts": true, "reason": "a child in a sexual image"}');
+            const made = await t.get('/api/v1/review', {
+                bearer: reviewToken(),
+                multipart: { fields: { object_type: 'media.object', object_id: 'med_01JAB2C3D4E5F6G7H8J9K0MNPQ', object_app: 'live', media_object_id: 'med_01JAB2C3D4E5F6G7H8J9K0MNPQ', media_app: 'live' }, image: png },
+            });
+            const id = made.json().review.id;
+            const page = await t.get(`/review/${id}`, { as: staff });
+            assert.strictEqual(page.status, 200);
+            assert.ok(page.text.includes('Show the picture'));
+            assert.ok(page.text.includes('do not save it, copy it or share it'));
+            assert.ok(!page.text.includes('?exp=1&amp;sig=x'), 'no evidence URL before Show');
+            const shown = await t.get(`/review/${id}/reveal`, { as: staff, method: 'POST', form: {} });
+            assert.strictEqual(shown.status, 200, shown.text);
+            assert.ok(shown.text.includes('https://openvibe.media/o/med_'));
+            assert.ok(shown.text.includes('Operator views'));
+        });
+
         await check('a stored review row keeps the category and one operator report for category 3', async () => {
             const row = await t.ctx.s.db.maybe("SELECT category, action, is_public FROM vision_image_reviews WHERE object_id = 'med_hard' ORDER BY created_at DESC LIMIT 1");
             assert.deepStrictEqual([row.category, row.action, row.is_public], ['minor_sexual', 'quarantine_and_report', false]);
             const reports = await t.ctx.s.db.many('SELECT status FROM vision_operator_reports');
             assert.ok(reports.length >= 2 && reports.every((x) => x.status === 'open'));
             const counts = (await t.get('/api/v1/review', { bearer: readToken() })).json().counts;
-            assert.strictEqual(counts.minor_sexual, 3);
-            assert.strictEqual(counts.sex_acts, 2);
+            assert.ok(counts.minor_sexual >= 3);
+            assert.ok(counts.sex_acts >= 2);
             assert.ok(counts.fine >= 1);
             assert.ok(counts.reports_open >= 3);
         });

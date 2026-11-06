@@ -23,7 +23,7 @@ const { http } = require('openvibe-contracts');
 const { asyncRouter } = require('./router');
 const { loadImage } = require('../vision/images');
 const { VisionError } = require('../vision/service');
-const { CATEGORIES } = require('../vision/review');
+const { CATEGORIES, validPreviewUrl } = require('../vision/review');
 const { isStaff } = require('../identity/staff');
 
 function createApi(ctx) {
@@ -260,6 +260,11 @@ function createApi(ctx) {
     // owner), minor_sexual (always blocked, quarantined, and an operator report row made). A service token
     // needs vision.image.review; a person must be staff. The operator's decision route takes exactly one of
     // the same three, so an old or invented label can never be stored.
+    const staffPerson = (req, res, next) => {
+        const p = req.principal;
+        if (!p || p.kind === 'anonymous') return problem(res, 401, 'token.required', 'Sign in at openvibe.vision.');
+        return p.kind === 'user' && isStaff(p) ? next() : problem(res, 403, 'vision.staff_only', 'Only OpenVibe staff can open an operator view.');
+    };
     const staffOr = (cap, what) => (req, res, next) => {
         const p = req.principal;
         if (!p || p.kind === 'anonymous') return problem(res, 401, 'token.required', `Sign in at openvibe.vision, or send a Network token holding ${cap}.`);
@@ -272,16 +277,23 @@ function createApi(ctx) {
         const b = bodyOf(req);
         const text = b.text == null ? null : String(b.text).trim().slice(0, 4000);
         if (!req.file && !b.image && !b.image_url && !text) return invalid(res, 'send an image, an image_url, a data URL in image, or text');
-        let objectType = String(b.object_type || 'unknown').trim().slice(0, 80) || 'unknown';
+        const objectType = String(b.object_type || 'unknown').trim().slice(0, 80) || 'unknown';
         const objectId = b.object_id == null ? null : String(b.object_id).trim().slice(0, 300) || null;
+        const objectApp = b.object_app == null ? null : String(b.object_app).trim().slice(0, 80) || null;
+        const mediaObjectId = b.media_object_id == null ? null : String(b.media_object_id).trim().slice(0, 300) || null;
+        const mediaApp = b.media_app == null ? null : String(b.media_app).trim().slice(0, 80) || null;
+        if (mediaObjectId && !/^med_[0-9A-HJKMNP-TV-Z]{26}$/.test(mediaObjectId)) return invalid(res, 'media_object_id must be a Media object id (med_…)');
         let ownerSubject = b.owner_subject == null ? null : String(b.owner_subject).trim().replace(/^user:/, '');
         if (ownerSubject && !/^usr_[0-9A-HJKMNP-TV-Z]{26}$/.test(ownerSubject)) return invalid(res, 'owner_subject must be a user subject (usr_…)');
-        const previewUrl = typeof b.preview_url === 'string' && /^https?:\/\//.test(b.preview_url) && b.preview_url.length <= 2000 ? b.preview_url : null;
+        if (b.preview_url != null && b.preview_url !== '' && !validPreviewUrl(b.preview_url)) {
+            return problem(res, 400, 'vision.invalid_preview_url', 'preview_url must be an https URL on openvibe.vision, openvibe.network or openvibe.media');
+        }
+        const previewUrl = b.preview_url ? validPreviewUrl(b.preview_url) : null;
         const image = req.file || b.image || b.image_url ? await imageOf(req) : null;
         const out = await review.review({
             requester: req.principal.requester || 'anonymous',
             subject: isPerson(req) ? req.principal.subject : null,
-            image, text, objectType, objectId, ownerSubject, previewUrl,
+            image, text, objectType, objectId, objectApp, ownerSubject, previewUrl, mediaObjectId, mediaApp,
             note: b.note == null ? null : String(b.note).slice(0, 300),
         });
         return { review: out, category: out.category, plain_words: out.plain_words, action: out.action, public: out.public, status: out.status, report: out.report };
@@ -320,6 +332,19 @@ function createApi(ctx) {
         const by = req.principal.kind === 'user' ? req.principal.subject : req.principal.sub;
         const out = await review.decide(String(req.params.id || ''), category, by);
         return res.json({ review: out, category: out.category, plain_words: out.plain_words, action: out.action, public: out.public, status: out.status, report: out.report });
+    });
+
+    // The operator's one-picture evidence view. Staff only, and only for a hidden or quarantined review;
+    // the Media call is logged by Media and the reveal row by Vision.
+    r.post('/review/:id/reveal', staffPerson, async (req, res) => {
+        try {
+            const out = await review.reveal(String(req.params.id || ''), req.principal.subject);
+            res.set('Cache-Control', 'private, no-store');
+            return res.json({ view: out });
+        } catch (err) {
+            if (err instanceof VisionError) return problem(res, err.status, err.code, err.detail);
+            throw err;
+        }
     });
 
     // ── Model hints and benchmarks (no subject data) ───────

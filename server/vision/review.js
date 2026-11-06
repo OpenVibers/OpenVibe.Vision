@@ -38,6 +38,20 @@ const ACTION = Object.freeze({
     minor_sexual: 'quarantine_and_report',
 });
 
+// A preview URL is rendered in Vision's HTML: https only, on a first-party host Vision already trusts
+// (the same origins its CSP allows: its own site, Network and Media). Anything else is refused, never stored.
+const PREVIEW_HOSTS = Object.freeze(['openvibe.vision', 'openvibe.network', 'openvibe.media']);
+function validPreviewUrl(raw) {
+    if (typeof raw !== 'string' || raw.length > 2000) return null;
+    let u;
+    try { u = new URL(raw); } catch { return null; }
+    if (u.protocol !== 'https:') return null;
+    if (u.username || u.password) return null;
+    if (u.port && u.port !== '443') return null;
+    if (!PREVIEW_HOSTS.includes(u.hostname.toLowerCase())) return null;
+    return u.toString();
+}
+
 const MINOR = /\b(?:child(?:ren)?|kids?|minors?|underage|preteens?|toddlers?|bab(?:y|ies)|infants?|boys?|girls?|teen(?:age(?:rs?)?|s)?|schoolboys?|schoolgirls?)\b/i;
 const NUDE = /\b(?:naked|nude|nudity|undress(?:ed|ing)?|topless|bottomless|genital(?:s|ia)?|penis(?:es)?|vaginas?|vulvas?|breasts?|nipples?)\b/i;
 // What a scene shows, not what someone talks about in passing: sex acts and pornography. Nudity and body
@@ -108,6 +122,9 @@ function wireReview(row) {
         status: row.status,
         object_type: row.object_type,
         object_id: row.object_id == null ? null : String(row.object_id),
+        object_app: row.object_app == null ? null : row.object_app,
+        media_object_id: row.media_object_id == null ? null : String(row.media_object_id),
+        media_app: row.media_app == null ? null : row.media_app,
         owner_subject: row.owner_subject == null ? null : row.owner_subject,
         subject: row.subject == null ? null : row.subject,
         reason: row.reason == null ? null : row.reason,
@@ -125,6 +142,19 @@ function wireReview(row) {
         reviewed_at: row.reviewed_at == null ? null : (row.reviewed_at instanceof Date ? row.reviewed_at.toISOString() : String(row.reviewed_at)),
         created_at: row.created_at == null ? null : (row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at)),
         report: report ? wireReport(report) : null,
+        reveals: Array.isArray(row.reveals) ? row.reveals.map(wireReveal) : [],
+    };
+}
+
+function wireReveal(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        review_id: row.review_id,
+        operator_subject: row.operator_subject,
+        kind: row.kind,
+        expires_at: row.expires_at == null ? null : (row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at)),
+        revealed_at: row.revealed_at == null ? null : (row.revealed_at instanceof Date ? row.revealed_at.toISOString() : String(row.revealed_at)),
     };
 }
 
@@ -136,6 +166,9 @@ function wireReport(row) {
         category: row.category,
         object_type: row.object_type,
         object_id: row.object_id == null ? null : String(row.object_id),
+        object_app: row.object_app == null ? null : row.object_app,
+        media_object_id: row.media_object_id == null ? null : String(row.media_object_id),
+        media_app: row.media_app == null ? null : row.media_app,
         owner_subject: row.owner_subject == null ? null : row.owner_subject,
         reason: row.reason == null ? null : row.reason,
         status: row.status,
@@ -144,7 +177,15 @@ function wireReport(row) {
     };
 }
 
-function createReview({ config, s, ai, store, log = console }) {
+function createReview({ config, s, ai, store, mediaView = null, log = console }) {
+    /** When the image pass fails, only already-severe text may answer; harmless text can never clear it. */
+    function textOrUnavailable(byText, why) {
+        if (byText && (byText.category === 'sex_acts' || byText.category === 'minor_sexual')) {
+            return { ...byText, plain: PLAIN[byText.category], action: ACTION[byText.category], public: false, confidence: null, reason: `${byText.reason} (${why})` };
+        }
+        throw new VisionError(503, 'vision.review_unavailable', `${why}; harmless text cannot clear an image the reviewer could not judge`);
+    }
+
     /**
      * classify({ image, text }) → { category, plain_words, action, reason, cue, engine, model, ... }.
      * Text alone is enough (Live's AI overviews); an image asks OpenVibe.AI for the strict JSON above.
@@ -155,28 +196,17 @@ function createReview({ config, s, ai, store, log = console }) {
             if (!byText) throw new VisionError(400, 'vision.review_invalid', 'send an image or text to review');
             return { ...byText, plain: PLAIN[byText.category], action: ACTION[byText.category], public: byText.category === 'fine', confidence: null };
         }
-        if (!ai.enabled) {
-            if (byText) return { ...byText, plain: PLAIN[byText.category], action: ACTION[byText.category], public: byText.category === 'fine', confidence: null };
-            throw new VisionError(503, 'vision.review_unavailable', 'OpenVibe.AI is not configured on this host; the review cannot judge an image without text');
-        }
+        if (!ai.enabled) return textOrUnavailable(byText, 'OpenVibe.AI is not configured on this host; the image cannot be judged');
         const normal = await forModel(image.buffer);
         const started = Date.now();
         let a;
         try {
             a = await ai.answer({ dataUrl: normal.dataUrl, task: 'ask', question: CLASSIFY_PROMPT, maxTokens: 300, temperature: 0 });
         } catch (err) {
-            if (byText) {
-                return { ...byText, plain: PLAIN[byText.category], action: ACTION[byText.category], public: byText.category === 'fine', confidence: null, reason: `${byText.reason} (the image pass was unavailable)` };
-            }
-            throw new VisionError(502, 'vision.review_unavailable', (err && (err.detail || err.message)) || 'OpenVibe.AI did not answer the review');
+            return textOrUnavailable(byText, `the image pass was unavailable (${(err && (err.detail || err.message)) || 'no answer'})`);
         }
         const parsed = parseClassification(a.text);
-        if (!parsed) {
-            if (byText) {
-                return { ...byText, plain: PLAIN[byText.category], action: ACTION[byText.category], public: byText.category === 'fine', confidence: null, reason: `${byText.reason} (the image pass returned no usable classification)` };
-            }
-            throw new VisionError(502, 'vision.review_invalid_answer', 'OpenVibe.AI answered the review without a usable classification');
-        }
+        if (!parsed) return textOrUnavailable(byText, 'the image pass returned no usable classification');
         const category = worst(parsed.category, byText ? byText.category : 'fine');
         return {
             category,
@@ -197,12 +227,12 @@ function createReview({ config, s, ai, store, log = console }) {
     }
 
     /** Classify and store one review; a category-3 row always creates the operator's report record. */
-    async function review({ requester, subject = null, image = null, text = null, objectType = 'unknown', objectId = null, ownerSubject = null, previewUrl = null, note = null }) {
+    async function review({ requester, subject = null, image = null, text = null, objectType = 'unknown', objectId = null, objectApp = null, ownerSubject = null, previewUrl = null, mediaObjectId = null, mediaApp = null, note = null }) {
         const got = await classify({ image, text });
         // A person's own review without an object owner belongs to them; a service names the owner explicitly.
         const owner = ownerSubject || subject || null;
         const saved = await store.saveReview({
-            subject, requester, objectType, objectId, ownerSubject: owner,
+            subject, requester, objectType, objectId, objectApp, ownerSubject: owner, mediaObjectId, mediaApp,
             imageSha256: image ? image.sha256 : null, imageMime: image ? image.mime : null, imageBytes: image ? image.bytes : null,
             previewUrl, category: got.category, plainWords: PLAIN[got.category], action: ACTION[got.category],
             public: got.category === 'fine', reason: note ? `${got.reason || ''}${got.reason ? ' — ' : ''}${String(note).slice(0, 300)}` : got.reason,
@@ -223,27 +253,59 @@ function createReview({ config, s, ai, store, log = console }) {
     /** An operator's explicit decision: exactly one of the three categories, never a new one. */
     async function decide(id, category, by) {
         if (!CATEGORIES.includes(category)) throw new VisionError(400, 'vision.review_invalid_category', `category must be one of ${CATEGORIES.join(', ')}`);
-        const got = await store.reviewById(id);
+        const got = await store.reviewWithReport(id);
         if (!got) throw new VisionError(404, 'vision.review_not_found', 'No such review.');
         await store.decideReview(id, {
             category, plainWords: PLAIN[category], action: ACTION[category], public: category === 'fine', reviewedBy: by,
         });
+        let report = got.report;
         if (category === 'minor_sexual') {
             const existing = await store.operatorReportFor(id);
-            if (!existing) await store.createOperatorReport({
+            report = existing || await store.createOperatorReport({
                 reviewId: id, category, objectType: got.object_type, objectId: got.object_id,
                 ownerSubject: got.owner_subject, reason: got.reason || 'operator marked sexual content involving a minor',
             });
         } else {
             await store.dismissOperatorReport(id, by);
+            report = null;
+        }
+        // Media releases (or places) its evidence hold only through this operator decision. A failure is
+        // surfaced so the operator can repeat the decision; the hold is not silently left open.
+        if (mediaView && (got.media_object_id || (got.object_type === 'media.object' && got.object_id))) {
+            const app = got.media_app || got.object_app;
+            try {
+                await mediaView.decide({ app, objectId: got.media_object_id || got.object_id, category, reportId: report ? report.id : null, by });
+            } catch (err) {
+                throw new VisionError(502, 'vision.media_hold_unreleased', `The review was saved, but Media did not release its evidence hold: ${(err && err.message) || err}`);
+            }
         }
         return store.reviewWithReport(id);
     }
 
-    return { classify, review, decide };
+    /** The operator's one-picture reveal: Media's 60-second view for a quarantined/hidden object, logged. */
+    async function reveal(id, operator) {
+        const got = await store.reviewById(id);
+        if (!got) throw new VisionError(404, 'vision.review_not_found', 'No such review.');
+        if (!['sex_acts', 'minor_sexual'].includes(got.category)) throw new VisionError(409, 'vision.review_not_hidden', 'Only a hidden or quarantined review needs an operator view.');
+        let out = null;
+        if (mediaView && (got.media_object_id || (got.object_type === 'media.object' && got.object_id))) {
+            out = await mediaView.operatorView({ app: got.media_app || got.object_app, objectId: got.media_object_id || got.object_id });
+            if (!out || !out.url) throw new VisionError(502, 'vision.media_view_unavailable', 'Media did not return an operator view.');
+            const row = await store.saveReviewReveal({ reviewId: id, operatorSubject: operator, kind: 'media_operator_view', expiresAt: out.expires_at || null });
+            return { url: out.url, expires_at: out.expires_at || null, reveal: row };
+        }
+        // A service that sent no Media object can still supply a first-party preview URL; it is logged too.
+        if (got.preview_url && validPreviewUrl(got.preview_url)) {
+            const row = await store.saveReviewReveal({ reviewId: id, operatorSubject: operator, kind: 'preview', expiresAt: null });
+            return { url: got.preview_url, expires_at: null, reveal: row };
+        }
+        throw new VisionError(409, 'vision.review_no_evidence_view', 'This review has no Media object to open for the operator.');
+    }
+
+    return { classify, review, decide, reveal };
 }
 
 module.exports = {
     CATEGORIES, PLAIN, ACTION, MINOR, NUDE, SEX,
-    classifyText, parseClassification, worst, wireReview, wireReport, createReview,
+    classifyText, parseClassification, worst, wireReview, wireReport, wireReveal, validPreviewUrl, PREVIEW_HOSTS, createReview,
 };
