@@ -29,6 +29,7 @@ const CAPABILITIES = Object.freeze([
     'vision.face.consent.manage', 'vision.face.verify.self', 'vision.face.find.self',
     'vision.face.library', 'vision.face.cast.match', 'vision.face.cast.read',
     'vision.models.read', 'vision.benchmarks.read',
+    'vision.image.review', 'vision.review.read', 'vision.review.decide',
 ]);
 
 function decodePayload(token) {

@@ -2,6 +2,15 @@
 
 What changed in OpenVibe.Vision, newest first.
 
+## Unreleased — VIS-6
+
+- Added the unsafe-image review: exactly three categories in plain words (`fine` including nudity, `sex_acts` never
+  public, `minor_sexual` always blocked and reported to the operator), `POST /api/v1/review` for Media, Live and
+  Community, a staff queue at `/review`, one review page with the same three choices and the operator report at
+  `/review/reports`. Category 3 always makes one `vision_operator_reports` row; nothing is reported outside OpenVibe.
+  The review stores no image bytes, only an object reference, a sha256 and the model provenance. Migration
+  `0007_unsafe_image_reviews.sql`; tests `test/review.test.js`.
+
 ## Unreleased — VIS-5
 
 - Added a Streamable HTTP MCP endpoint with eleven tools, protected-resource metadata, token challenges and the

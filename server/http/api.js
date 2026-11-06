@@ -23,9 +23,11 @@ const { http } = require('openvibe-contracts');
 const { asyncRouter } = require('./router');
 const { loadImage } = require('../vision/images');
 const { VisionError } = require('../vision/service');
+const { CATEGORIES } = require('../vision/review');
+const { isStaff } = require('../identity/staff');
 
 function createApi(ctx) {
-    const { config, s, principal, store, vision, ai, ocr, fetchImpl, networkTools, models: localModels, eventPublisher } = ctx;
+    const { config, s, principal, store, vision, review, ai, ocr, fetchImpl, networkTools, models: localModels, eventPublisher } = ctx;
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 1 } });
 
@@ -251,6 +253,73 @@ function createApi(ctx) {
         if (!mine && !service) return problem(res, 404, 'vision.not_found', 'No such UI check.');
         res.set('Cache-Control', 'private, no-store');
         return res.json(row);
+    });
+
+    // ── Unsafe-image review (VIS-6) ────────────────────────
+    // Exactly three categories, plain words: fine (nudity included), sex_acts (never public, kept for its
+    // owner), minor_sexual (always blocked, quarantined, and an operator report row made). A service token
+    // needs vision.image.review; a person must be staff. The operator's decision route takes exactly one of
+    // the same three, so an old or invented label can never be stored.
+    const staffOr = (cap, what) => (req, res, next) => {
+        const p = req.principal;
+        if (!p || p.kind === 'anonymous') return problem(res, 401, 'token.required', `Sign in at openvibe.vision, or send a Network token holding ${cap}.`);
+        if (p.kind === 'user') return isStaff(p) ? next() : problem(res, 403, 'vision.staff_only', `Only OpenVibe staff can ${what}.`);
+        return principal.granted(p, cap) ? next() : problem(res, 403, 'capability.denied', `${cap} not granted`);
+    };
+    const reviewCategory = (v) => (CATEGORIES.includes(String(v || '')) ? String(v) : null);
+
+    r.post('/review', principal.optional('vision.image.review'), staffOr('vision.image.review', 'submit a review'), attachUpload, (req, res) => run(res, async () => {
+        const b = bodyOf(req);
+        const text = b.text == null ? null : String(b.text).trim().slice(0, 4000);
+        if (!req.file && !b.image && !b.image_url && !text) return invalid(res, 'send an image, an image_url, a data URL in image, or text');
+        let objectType = String(b.object_type || 'unknown').trim().slice(0, 80) || 'unknown';
+        const objectId = b.object_id == null ? null : String(b.object_id).trim().slice(0, 300) || null;
+        let ownerSubject = b.owner_subject == null ? null : String(b.owner_subject).trim().replace(/^user:/, '');
+        if (ownerSubject && !/^usr_[0-9A-HJKMNP-TV-Z]{26}$/.test(ownerSubject)) return invalid(res, 'owner_subject must be a user subject (usr_…)');
+        const previewUrl = typeof b.preview_url === 'string' && /^https?:\/\//.test(b.preview_url) && b.preview_url.length <= 2000 ? b.preview_url : null;
+        const image = req.file || b.image || b.image_url ? await imageOf(req) : null;
+        const out = await review.review({
+            requester: req.principal.requester || 'anonymous',
+            subject: isPerson(req) ? req.principal.subject : null,
+            image, text, objectType, objectId, ownerSubject, previewUrl,
+            note: b.note == null ? null : String(b.note).slice(0, 300),
+        });
+        return { review: out, category: out.category, plain_words: out.plain_words, action: out.action, public: out.public, status: out.status, report: out.report };
+    }, 201));
+
+    r.get('/review/reports', staffOr('vision.review.read', 'read the operator report queue'), async (req, res) => {
+        const status = req.query.status == null ? 'open' : String(req.query.status);
+        if (!['open', 'resolved', 'dismissed', 'all'].includes(status)) return invalid(res, 'status must be open, resolved, dismissed or all');
+        const reports = await store.listOperatorReports({ status: status === 'all' ? null : status, limit: req.query.limit });
+        res.set('Cache-Control', 'private, no-store');
+        return res.json({ reports });
+    });
+
+    r.get('/review/:id', principal.optional('vision.review.read'), async (req, res) => {
+        const row = await store.reviewWithReport(String(req.params.id || ''));
+        if (!row) return problem(res, 404, 'vision.review_not_found', 'No such review.');
+        const mine = isPerson(req) && row.owner_subject && req.principal.subject === row.owner_subject;
+        if (!mine && !isStaff(req.principal) && !isMachine(req)) return problem(res, 404, 'vision.review_not_found', 'No such review.');
+        res.set('Cache-Control', 'private, no-store');
+        return res.json({ review: row, category: row.category, plain_words: row.plain_words, action: row.action, public: row.public, status: row.status, report: row.report });
+    });
+
+    r.get('/review', staffOr('vision.review.read', 'read the review queue'), async (req, res) => {
+        const category = req.query.category == null || req.query.category === '' ? null : String(req.query.category);
+        if (category && !reviewCategory(category)) return invalid(res, `category must be one of ${CATEGORIES.join(', ')}`);
+        const status = req.query.status == null || req.query.status === '' ? null : String(req.query.status);
+        if (status && !['auto', 'decided'].includes(status)) return invalid(res, 'status must be auto or decided');
+        const reviews = await store.listReviews({ category, status, limit: req.query.limit });
+        res.set('Cache-Control', 'private, no-store');
+        return res.json({ count: reviews.length, counts: await store.reviewCounts(), reviews });
+    });
+
+    r.post('/review/:id/decide', staffOr('vision.review.decide', 'decide a review'), async (req, res) => {
+        const category = reviewCategory(bodyOf(req).category);
+        if (!category) return problem(res, 400, 'vision.review_invalid_category', `category must be one of ${CATEGORIES.join(', ')}`);
+        const by = req.principal.kind === 'user' ? req.principal.subject : req.principal.sub;
+        const out = await review.decide(String(req.params.id || ''), category, by);
+        return res.json({ review: out, category: out.category, plain_words: out.plain_words, action: out.action, public: out.public, status: out.status, report: out.report });
     });
 
     // ── Model hints and benchmarks (no subject data) ───────

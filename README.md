@@ -104,7 +104,7 @@ General answer tables store no image bytes, token or provider key. The opt-in fa
 
 ## Capabilities and grants
 
-Contracts 0.240.0 registers twenty Vision capabilities. The service checks each machine token's grant on its route;
+Contracts registers Vision's capabilities; the review routes add three more. The service checks each machine token's grant on its route;
 private media and face identity operations also require the verified owner or the person's purpose-scoped consent.
 
 | Capability | Routes | Typical caller |
@@ -123,6 +123,8 @@ private media and face identity operations also require the verified owner or th
 | `vision.face.detect`, `vision.face.blur` | `POST /api/v1/faces/detect`, `/blur` | Public privacy tools; a service token needs the matching grant |
 | `vision.face.consent.manage`, `vision.face.verify.self`, `vision.face.find.self`, `vision.face.library`, `vision.face.cast.read` | `/api/v1/faces/*` | The person themselves, with separate signed consent for each matching purpose |
 | `vision.models.read`, `vision.benchmarks.read` | `GET /api/v1/models`, `/benchmarks` | Public reads; a service token needs the matching grant |
+| `vision.image.review` | `POST /api/v1/review` | Media, Live and Community (the unsafe-image review) |
+| `vision.review.read`, `vision.review.decide` | `GET /api/v1/review`, `GET /api/v1/review/:id`, `POST /api/v1/review/:id/decide`, `GET /api/v1/review/reports` | OpenVibe staff, and an operator's own service token |
 
 Outgoing: **`ai.run.create`** to OpenVibe.AI (audience `openvibe.ai`, namespace `ai.*`), minted by Network for the
 client `vision`. No new AI capability, no provider key, no direct paid provider.
@@ -162,6 +164,10 @@ must hold the route's capability (403 `capability.denied`).
 | `GET /api/v1/models` | AI's offered `provider:model` hints and the local engine. No subject data. |
 | `GET /api/v1/benchmarks?task=&limit=` | aggregate compare samples: task, engine, provider, model, samples, mean latency, mean cost. No subject or answer text. |
 | `GET /api/v1/ping`, `/api/health`, `/api/ready`, `/release.json`, `/metrics` | service endpoints; readiness and metrics are truthful, metrics loopback-only. |
+| `POST /api/v1/review` | `{ image_url }`, an image, or `{ text }` plus `{ object_type, object_id, owner_subject?, preview_url? }`; returns `{ category, plain_words, action, public, status, review, report? }`. Exactly one of `fine`, `sex_acts`, `minor_sexual`. |
+| `GET /api/v1/review?category=&status=` | the operator's queue (staff or `vision.review.read`); `GET /api/v1/review/:id` is the owner's or staff's single row. |
+| `POST /api/v1/review/:id/decide` | staff or `vision.review.decide`: `{ category }` must be one of the same three. |
+| `GET /api/v1/review/reports?status=` | the operator report rows made by category 3. |
 
 Example — the call Design's Arena makes:
 
@@ -193,6 +199,28 @@ Validation refusals: `vision.invalid`, `vision.invalid_task`, `vision.invalid_mo
 `faces.enrolment_required`, `faces.one_face_required`, `faces.model_unavailable`, `faces.key_unavailable`,
 `faces.live_grant_required`.
 
+## Unsafe-image review (VIS-6)
+
+An image review sorts into exactly three categories, in the owner's words:
+
+| Category | Plain words | Action |
+|---|---|---|
+| `fine` | Fine — OK to show, including nudity | `allow`; nothing changes |
+| `sex_acts` | Sex acts or porn — never public; kept for its owner | `hide`; every public surface is closed and the object stays with its owner |
+| `minor_sexual` | Sexual content involving a minor — always blocked and reported to the operator | `quarantine_and_report`; the object is blocked, a report row is made for the operator, and nothing is sent outside OpenVibe |
+
+`POST /api/v1/review` accepts an image (multipart `image`, data URL, or `image_url`) or text. Text is classified by the
+same rule Live's auto-clip guard uses: nudity alone is fine; sex acts and porn are not; a child with nudity or a sex
+act is the hard line. An image is classified by OpenVibe.AI with one strict JSON question; the text answer can make
+the result more severe but never less. Category 3 always creates one `vision_operator_reports` row. The staff pages
+`/review`, `/review/:id` and `/review/reports` show the queue and let an operator decide one of the same three
+categories; a decision writes `reviewed_by`/`reviewed_at` and dismisses a report the operator overrules. Child-safety
+hash matching (Cloudflare's CSAM Scanning Tool, NCMEC lists) is a separate service and not this language model.
+
+No image bytes are stored. The review row keeps the caller's object reference, a sha256, the category, the plain
+words, the action, the model provenance and an optional preview URL. A review does not publish a `vision.result.ready`
+event; the caller already has the row.
+
 ## Pages
 
 All server-rendered through the OpenVibe Frame (`openvibe-shared/shell`), readable without JavaScript, semantic HTML
@@ -215,6 +243,9 @@ person is `private, no-store`.
 | `/people/privacy` | the face notice: retention, erasure, liveness and what never happens |
 | `/privacy` | the shared legal privacy policy |
 | `/developers` | the API, capabilities and what leaves the host |
+| `/review` | the unsafe-image queue, staff only: three category tabs and the report count |
+| `/review/:id` | one review: the image, its provenance, the three plain choices and the operator report |
+| `/review/reports` | the operator report rows (open, resolved, dismissed) |
 | 404 | the not-found page |
 
 `public/css/vision.css` and `public/js/vision.js` are one-comment placeholder files: the pages work without them and

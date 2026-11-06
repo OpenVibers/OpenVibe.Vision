@@ -15,6 +15,7 @@
  *   /find, /read, /watch   the network tools (private search, receipts, camera)
  *   /people           the four face consents, each with its own signed switch
  *   /people/privacy   face retention, liveness and what never happens
+ *   /review, /review/:id, /review/reports   the unsafe-image review (staff only)
  *   /developers       the API
  *   404
  */
@@ -29,11 +30,12 @@ const { sameOrigin } = require('./principal');
 const { loadImage } = require('../vision/images');
 const { check: uiCheck } = require('../vision/ui-check');
 const { VisionError } = require('../vision/service');
-const { html, raw } = require('../render/html');
+const { html, raw, esc } = require('../render/html');
 const { send } = require('../render/layout');
 const { isStaff } = require('../identity/staff');
 const views = require('../views');
 const peopleViews = require('../views/people');
+const reviewViews = require('../views/review');
 const toolViews = require('../views/tools');
 
 const PUBLIC_CACHE = 'public, max-age=60';
@@ -41,7 +43,7 @@ const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const SAMPLE_IMAGES = { receipt: 'sample-receipt.png', sign: 'sample-sign.png' };
 
 function createPageRoutes(ctx) {
-    const { config, s, store, vision, ai, ocr, faces, networkTools, fetchImpl } = ctx;
+    const { config, s, store, vision, review, ai, ocr, faces, networkTools, fetchImpl } = ctx;
     const r = asyncRouter();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.images.maxMb * 1024 * 1024, files: 2 } });
     r.use(express.urlencoded({ extended: false, limit: '2mb' }));
@@ -361,6 +363,62 @@ function createPageRoutes(ctx) {
         const mine = Boolean(signedIn(req) && owner && req.viewer.subject === owner);
         if (!mine && !staffViewer(req)) return notFound(req, res);
         return page(req, res, { title: 'A UI check', body: raw(views.uiCheckResult({ c: row, mine })), cache: null });
+    });
+
+    // ── Unsafe-image review (VIS-6, staff) ───────────────────
+    // Exactly three categories. The queue and the decision form are staff-only; the API is where a service
+    // sends an image and where the same three categories are enforced in code.
+    const staffPage = (req, res) => {
+        if (!signedIn(req)) {
+            page(req, res, { title: 'Sign in', body: raw(views.signIn({ title: 'Review', text: 'The unsafe-image review queue is for OpenVibe staff.', next: '/review' })) }, 401);
+            return false;
+        }
+        if (!staffViewer(req)) {
+            page(req, res, { title: 'Staff only', body: raw(html`<div class="vi-wrap vi-page-pad vi-narrow"><div class="vi-empty"><h1>Staff only</h1><p>The unsafe-image review queue is for OpenVibe staff. Your role is <code>${esc(req.viewer.role || 'user')}</code>.</p><a class="vi-btn" href="/">Back to Vision</a></div></div>`) }, 403);
+            return false;
+        }
+        return true;
+    };
+    const reviewCategory = (v) => (reviewViews.PLAIN[String(v || '')] ? String(v) : null);
+    const reviewProblem = (err) => (err instanceof VisionError ? err.detail : 'That review could not be saved.');
+
+    r.get('/review', async (req, res) => {
+        if (!staffPage(req, res)) return;
+        const category = reviewCategory(req.query.category);
+        const [reviews, counts, reports] = await Promise.all([
+            store.listReviews({ category, limit: 100 }),
+            store.reviewCounts(),
+            store.listOperatorReports({ status: 'open', limit: 10 }),
+        ]);
+        return page(req, res, {
+            title: 'Unsafe-image review', cache: null,
+            body: raw(reviewViews.queue({ reviews, counts, category, reports, saved: req.query.saved === '1' })),
+        });
+    });
+    r.get('/review/reports', async (req, res) => {
+        if (!staffPage(req, res)) return;
+        const status = ['open', 'resolved', 'dismissed', 'all'].includes(String(req.query.status || '')) ? String(req.query.status) : 'open';
+        const reports = await store.listOperatorReports({ status: status === 'all' ? null : status, limit: 200 });
+        return page(req, res, { title: 'Operator reports', cache: null, body: raw(reviewViews.reports({ reports })) });
+    });
+    r.get('/review/:id', async (req, res) => {
+        if (!staffPage(req, res)) return;
+        const row = await store.reviewWithReport(String(req.params.id || ''));
+        if (!row) return notFound(req, res);
+        return page(req, res, { title: 'Review one image', cache: null, body: raw(reviewViews.item({ review: row, saved: req.query.saved === '1' })) });
+    });
+    r.post('/review/:id/decide', async (req, res) => {
+        if (!staffPage(req, res)) return;
+        if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
+        const category = reviewCategory(bodyOf(req).category);
+        try {
+            if (!category) throw new VisionError(400, 'vision.review_invalid_category', 'Choose one of the three categories.');
+            await review.decide(String(req.params.id || ''), category, req.viewer.subject);
+            return res.redirect(303, `/review/${encodeURIComponent(String(req.params.id))}?saved=1`);
+        } catch (err) {
+            const row = await store.reviewWithReport(String(req.params.id || ''));
+            return page(req, res, { title: 'Review one image', cache: null, body: raw(reviewViews.item({ review: row, problem: reviewProblem(err) })) }, err instanceof VisionError ? err.status : 400);
+        }
     });
 
     // ── Developers ───────────────────────────────────────────
