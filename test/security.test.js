@@ -7,10 +7,16 @@ const { boot, check, done } = require('./helpers/boot');
 const { assertPublicUrl, isPrivateAddress, loadImage } = require('../server/vision/images');
 
 (async () => {
-    await check('private, loopback, link-local and unique-local addresses are refused', async () => {
-        for (const a of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '::1', 'fd00::1', 'fe80::1', '0.0.0.0']) assert.strictEqual(isPrivateAddress(a), true, a);
-        for (const a of ['8.8.8.8', '1.1.1.1', '2606:4700:4700::1111']) assert.strictEqual(isPrivateAddress(a), false, a);
-        await assert.rejects(assertPublicUrl('http://127.0.0.1/x', { allowPrivate: false }), (e) => e.code === 'image.private_url');
+    await check('private, loopback, link-local and unique-local addresses are refused in every spelling', async () => {
+        for (const a of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '192.0.2.1', '198.51.100.7',
+            '203.0.113.9', '192.88.99.1', '255.255.255.255', '::1', '::', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '::127.0.0.1',
+            '64:ff9b::7f00:1', '64:ff9b:1::a9fe:a9fe', '2002:7f00:1::', '2001:0:4136:e378:8000:63bf:80ff:fffe']) assert.strictEqual(isPrivateAddress(a), true, a);
+        for (const a of ['8.8.8.8', '1.1.1.1', '2606:4700:4700::1111', '::ffff:8.8.8.8', '64:ff9b::808:808']) assert.strictEqual(isPrivateAddress(a), false, a);
+        // Node does not call a custom lookup for an IP-literal host, so the URL check itself has to refuse it.
+        for (const u of ['http://127.0.0.1/x', 'http://[::1]/x', 'http://[::ffff:127.0.0.1]/x', 'http://[64:ff9b::7f00:1]/x',
+            'http://[2002:7f00:1::]/x', 'http://[2001:0:4136:e378:8000:63bf:80ff:fffe]/x', 'http://2130706433/x']) {
+            await assert.rejects(assertPublicUrl(u, { allowPrivate: false }), (e) => e.code === 'image.private_url', u);
+        }
         await assert.rejects(assertPublicUrl('file:///etc/passwd'), (e) => e.code === 'image.invalid_url');
         await assert.rejects(assertPublicUrl('https://user:pass@example.com/x'), (e) => e.code === 'image.invalid_url');
     });
