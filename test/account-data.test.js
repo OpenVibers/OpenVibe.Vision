@@ -62,6 +62,8 @@ async function startNetworkStub() {
         const aCheck = await t.ctx.store.saveUiCheck({ subject: A, requester: `user:${A}`, source: 'html', viewport: { w: 390, h: 844 }, engine: 'static-html', findings: [{ kind: 'overflow' }], summary: { summary: 'one fault' } });
         const bCheck = await t.ctx.store.saveUiCheck({ subject: B, requester: `user:${B}`, source: 'url', url: 'https://openvibe.vision/', viewport: { w: 1280, h: 800 }, engine: 'static-html', findings: [], summary: {} });
         const aCompare = await t.ctx.store.saveCompare({ subject: A, requester: `user:${A}`, task: 'ask', image: IMAGE, question: 'compare', samples: [{ engine: 'local', model: 'tesseract', provider: 'local', route: 'local.ocr', ok: true, text: 'A text', costUsd: 0, ms: 4 }] });
+        const aReview = await t.ctx.store.saveReview({ subject: A, requester: `user:${A}`, objectType: 'media.object', objectId: 'med_a', ownerSubject: A, category: 'fine', plainWords: 'Fine', action: 'allow', public: true, engine: 'text', reason: 'A review' });
+        const bReview = await t.ctx.store.saveReview({ subject: B, requester: `user:${B}`, objectType: 'media.object', objectId: 'med_b', ownerSubject: B, category: 'sex_acts', plainWords: 'Sex acts or porn', action: 'hide', public: false, engine: 'text', reason: 'B review' });
 
         await check('an export carries only A\'s answers, compare samples and UI checks', async () => {
             const body = bodyOf(exportEvent);
@@ -72,12 +74,15 @@ async function startNetworkStub() {
             assert.ok(part, 'the part was pushed to Network');
             assert.strictEqual(part.auth, 'Bearer tok_vision');
             assert.strictEqual(part.body.subject, A);
-            assert.deepStrictEqual(part.body.files.map((f) => f.name).sort(), ['answers.json', 'compare.json', 'ui-checks.json']);
+            assert.deepStrictEqual(part.body.files.map((f) => f.name).sort(), ['answers.json', 'compare.json', 'image-reviews.json', 'ui-checks.json']);
             const all = JSON.stringify(part.body);
             assert.ok(all.includes(aAnswer.id));
             assert.ok(all.includes(aCheck.id));
             assert.ok(all.includes(aCompare.answer.id));
+            assert.ok(all.includes(aReview.id));
             assert.ok(!all.includes(bAnswer.id));
+            assert.ok(!all.includes(bReview.id));
+            assert.ok(!all.includes('B review'));
             assert.ok(!all.includes(bCheck.id));
             assert.ok(!all.includes('B answer'));
             const answers = part.body.files.find((f) => f.name === 'answers.json').content;
@@ -94,6 +99,8 @@ async function startNetworkStub() {
             assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_answers WHERE subject = $1', [A])), 0);
             assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_ui_checks WHERE subject = $1', [A])), 0);
             assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_compare_samples WHERE subject = $1', [A])), 0);
+            assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_image_reviews WHERE owner_subject = $1', [A])), 0);
+            assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_image_reviews WHERE owner_subject = $1', [B])), 1);
             assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_answers WHERE subject = $1', [B])), 1);
             assert.strictEqual(Number(await db.value('SELECT COUNT(*)::int AS n FROM vision_ui_checks WHERE subject = $1', [B])), 1);
             const confirmation = stub.calls.find((c) => c.url === `/internal/account-deletions/${DEL}/confirmations`);
@@ -101,6 +108,7 @@ async function startNetworkStub() {
             assert.ok(confirmation.body.erased.vision_answers >= 1);
             assert.ok(confirmation.body.erased.vision_ui_checks >= 1);
             assert.ok(confirmation.body.erased.vision_compare_samples >= 1);
+            assert.ok(confirmation.body.erased.vision_image_reviews >= 1);
             assert.ok(!Number.isNaN(Date.parse(confirmation.body.completed_at)));
         });
 

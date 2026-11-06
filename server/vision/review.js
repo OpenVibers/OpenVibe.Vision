@@ -199,8 +199,10 @@ function createReview({ config, s, ai, store, log = console }) {
     /** Classify and store one review; a category-3 row always creates the operator's report record. */
     async function review({ requester, subject = null, image = null, text = null, objectType = 'unknown', objectId = null, ownerSubject = null, previewUrl = null, note = null }) {
         const got = await classify({ image, text });
+        // A person's own review without an object owner belongs to them; a service names the owner explicitly.
+        const owner = ownerSubject || subject || null;
         const saved = await store.saveReview({
-            subject, requester, objectType, objectId, ownerSubject,
+            subject, requester, objectType, objectId, ownerSubject: owner,
             imageSha256: image ? image.sha256 : null, imageMime: image ? image.mime : null, imageBytes: image ? image.bytes : null,
             previewUrl, category: got.category, plainWords: PLAIN[got.category], action: ACTION[got.category],
             public: got.category === 'fine', reason: note ? `${got.reason || ''}${got.reason ? ' — ' : ''}${String(note).slice(0, 300)}` : got.reason,
@@ -209,7 +211,7 @@ function createReview({ config, s, ai, store, log = console }) {
         });
         if (got.category === 'minor_sexual') {
             const report = await store.createOperatorReport({
-                reviewId: saved.id, category: got.category, objectType, objectId, ownerSubject,
+                reviewId: saved.id, category: got.category, objectType, objectId, ownerSubject: owner,
                 reason: got.reason || 'sexual content involving a minor',
             });
             if (!report) log.error(`[Vision] review ${saved.id}: category minor_sexual but no operator report was recorded`);
