@@ -2,8 +2,10 @@
 
 /**
  * Image inputs. An API caller may upload bytes (multipart), send a data: URI, or name a public https URL.
- * The URL path is fetched only after every resolved address is checked: loopback, link-local, private and
- * unique-local addresses are refused (SSRF), redirects are re-checked, and the bytes must really be an image.
+ * The URL path is fetched only after every resolved address is checked against openvibe-shared/egress's rule
+ * (the one Live, Events, Chat and Tools use): loopback, link-local, private, unique-local, documentation and
+ * reserved ranges are refused, including the IPv6 spellings that wrap a private IPv4 address (v4-mapped,
+ * v4-compatible, NAT64, 6to4, Teredo). Redirects are re-checked, and the bytes must really be an image.
  *
  * Nothing here stores an image. The answer writes only sha256, mime and byte count; OCR gets a temporary file
  * that is removed in a finally block.
@@ -15,6 +17,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 const sharp = require('sharp');
+const egress = require('openvibe-shared/egress');
 
 const DATA_URL_RE = /^data:(image\/(?:png|jpe?g|webp|gif|bmp|tiff|avif));base64,([A-Za-z0-9+/=\s]+)$/i;
 const MIME_BY_MAGIC = [
@@ -27,26 +30,13 @@ const MIME_BY_MAGIC = [
     { mime: 'image/avif', test: (b) => b.length > 12 && b.toString('ascii', 4, 12) === 'ftypavif' },
 ];
 
+/**
+ * The platform's address rule, openvibe-shared/egress, so this copy cannot drift again: any address that is
+ * not globally routable unicast is private, including ::127.0.0.1, 64:ff9b::7f00:1 (NAT64), 2002:7f00:1::
+ * (6to4) and Teredo, and anything that is not an address at all.
+ */
 function isPrivateAddress(address) {
-    if (!net.isIP(address)) return true;
-    if (net.isIPv4(address)) {
-        const p = address.split('.').map(Number);
-        if (p[0] === 10 || p[0] === 127 || p[0] === 0) return true;
-        if (p[0] === 169 && p[1] === 254) return true;
-        if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
-        if (p[0] === 192 && p[1] === 168) return true;
-        if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true;
-        if (p[0] === 198 && (p[1] === 18 || p[1] === 19)) return true;
-        if (p[0] >= 224) return true;
-        return false;
-    }
-    const a = address.toLowerCase();
-    if (a === '::' || a === '::1') return true;
-    if (a.startsWith('fe8') || a.startsWith('fe9') || a.startsWith('fea') || a.startsWith('feb')) return true;
-    if (a.startsWith('fc') || a.startsWith('fd')) return true;
-    if (a.startsWith('ff')) return true;
-    if (a.startsWith('::ffff:')) return isPrivateAddress(a.slice(7));
-    return false;
+    return !egress.isPublicAddress(egress.normalizeHost(address));
 }
 
 async function assertPublicUrl(raw, { allowPrivate = false } = {}) {
@@ -55,7 +45,7 @@ async function assertPublicUrl(raw, { allowPrivate = false } = {}) {
     if (!/^https?:$/.test(u.protocol)) { const e = new Error('an image URL must be http or https'); e.code = 'image.invalid_url'; throw e; }
     if (u.username || u.password) { const e = new Error('an image URL may not carry credentials'); e.code = 'image.invalid_url'; throw e; }
     if (!allowPrivate) {
-        const host = u.hostname.replace(/^\[|\]$/g, '');
+        const host = egress.normalizeHost(u.hostname);
         if (net.isIP(host)) {
             if (isPrivateAddress(host)) { const e = new Error('that address is private; Vision fetches public images only'); e.code = 'image.private_url'; throw e; }
         } else {
