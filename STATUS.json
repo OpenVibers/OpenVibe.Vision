@@ -4,17 +4,17 @@
   "stage": "product",
   "code": true,
   "wave": "W21",
-  "plan": "OpenVibe.Vision v1 (plan 2026-10-28 \u00a75.8): ask a picture, compare models side by side, OCR with a local engine first, and the UI check as an API other services call; \u00a75.8b adds faces with separate purpose-scoped consent; F1 (L24) adds a camera owner's own familiar-face libraries; wave 1 adds the six network tools",
+  "plan": "OpenVibe.Vision v1 (plan 2026-10-28 §5.8): ask a picture, compare models side by side, OCR with a local engine first, and the UI check as an API other services call; §5.8b adds faces with separate purpose-scoped consent; F1 (L24) adds a camera owner's own familiar-face libraries; wave 1 adds the six network tools",
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9, Tesseract 5, sharp, onnxruntime-node (YuNet/SFace), Transformers.js (CLIP/DETR)",
   "port": "5130",
   "domain": "openvibe.vision",
   "contracts": "openvibe-contracts v0.294.0",
   "sdk": "openvibe-sdk v0.82.0",
-  "shared": "openvibe-shared v4.114.0",
+  "shared": "openvibe-shared v4.115.1",
   "packages": [
     "openvibe-contracts v0.294.0",
     "openvibe-sdk v0.82.0",
-    "openvibe-shared v4.114.0"
+    "openvibe-shared v4.115.1"
   ],
   "capabilities": [
     "vision.image.ask",
