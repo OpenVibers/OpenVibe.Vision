@@ -4,7 +4,7 @@
  * OpenVibe.Vision — Express app factory; server/index.js listens, tests build their own instance with a temp
  * database, a mock Network and a mock OpenVibe.AI.
  *
- *   /, /ask, /ocr, /compare, /ui-check, /a/:id, /ui/:id, /people, /people/privacy, /developers   the pages (http/pages.js)
+ *   /, /ask, /ocr, /compare, /ui-check, /a/:id, /ui/:id, /people, /people/privacy, /review, /developers   the pages (http/pages.js)
  *   /api/v1/*                                                          the API (http/api.js, http/faces-api.js)
  *   /auth/*                                                            Network SSO with PKCE (auth/sso.js)
  *   /api/health, /api/ready, /release.json, /metrics                    (loopback only)
@@ -40,6 +40,8 @@ const { createStore } = require('./store');
 const { createOcr } = require('./vision/ocr');
 const { createAi } = require('./vision/ai');
 const { createVision } = require('./vision/service');
+const { createReview } = require('./vision/review');
+const { createMediaView } = require('./vision/media-view');
 const { createFacesModel } = require('./vision/faces-model');
 const { createFaces } = require('./vision/faces');
 const { createFaceLibraries } = require('./vision/face-libraries');
@@ -71,6 +73,8 @@ async function createApp(opts = {}) {
     const ocr = opts.ocr || createOcr({ config, log });
     const ai = opts.ai || createAi({ config, fetchImpl, log });
     const vision = createVision({ config, s, ocr, ai, store, log });
+    const mediaView = opts.mediaView || createMediaView({ config, fetchImpl, log });
+    const review = opts.review || createReview({ config, s, ai, store, mediaView, log });
     const facesModel = opts.facesModel || createFacesModel({ dir: config.faces.modelsDir });
     const faces = createFaces({ s, config, model: facesModel });
     const consentRegistry = createConsentRegistry({ config, fetchImpl, log });
@@ -89,7 +93,7 @@ async function createApp(opts = {}) {
     // until OpenVibe.Events takes them, so a failed publish is not lost. The relay starts in server/index.js.
     const eventOutbox = opts.eventOutbox || createVisionOutbox({ s, config, log, fetchImpl });
     const eventPublisher = opts.eventPublisher || createPublisher({ outbox: eventOutbox, log });
-    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, faces, faceLibraries, consentRegistry, models, networkTools, accountData, accountSend, eventOutbox, eventPublisher, log, fetchImpl };
+    const ctx = { config, s, keys, sso, principal, store, ocr, ai, vision, review, faces, faceLibraries, consentRegistry, models, networkTools, accountData, accountSend, eventOutbox, eventPublisher, log, fetchImpl };
 
     const app = express();
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts

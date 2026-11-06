@@ -8,6 +8,8 @@
  * GET /api/v1/benchmarks aggregates these rows without subjects: per provider/model, task, samples, successful
  * answers, mean latency and mean cost. v1 keeps the measurements; the public Arena leaderboards are v2.
  */
+const { wireReview, wireReport, wireReveal } = require('./vision/review');
+
 const iso = (v) => (v == null ? null : (v instanceof Date ? v.toISOString() : String(v)));
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -183,7 +185,115 @@ function createStore(s) {
         }));
     }
 
-    return { saveAnswer, answerById, answerSubject, listAnswers, saveCompare, saveUiCheck, uiCheckById, uiCheckSubject, benchmarks };
+    // ── Unsafe-image reviews (VIS-6) ─────────────────────────
+    async function saveReview({ subject = null, requester, objectType = 'unknown', objectId = null, objectApp = null, ownerSubject = null, mediaObjectId = null, mediaApp = null,
+        imageSha256 = null, imageMime = null, imageBytes = null, previewUrl = null, category, plainWords, action,
+        public: isPublic = false, reason = null, cue = null, engine, model = null, provider = null, route = null,
+        confidence = null, costUsd = 0, latencyMs = 0 }) {
+        const id = s.newId('vir');
+        const row = await db.maybe(
+            `INSERT INTO vision_image_reviews (id, subject, requester, object_type, object_id, object_app, owner_subject, image_sha256,
+                image_mime, image_bytes, preview_url, category, plain_words, action, is_public, reason, cue, engine, model,
+                provider, route, confidence, cost_usd, latency_ms, media_object_id, media_app, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,now()) RETURNING *`,
+            [id, subject, requester, String(objectType).slice(0, 80), objectId == null ? null : String(objectId).slice(0, 300), objectApp,
+                ownerSubject, imageSha256, imageMime, imageBytes, previewUrl, category, plainWords, action, Boolean(isPublic), reason,
+                cue, engine, model, provider, route, confidence == null ? null : Math.max(0, Math.min(1, Number(confidence) || 0)),
+                Math.max(0, Number(costUsd) || 0), Math.max(0, Math.round(Number(latencyMs) || 0)), mediaObjectId, mediaApp],
+        );
+        return wireReview(row);
+    }
+
+    async function reviewById(id) {
+        return wireReview(await db.maybe('SELECT * FROM vision_image_reviews WHERE id = $1', [String(id || '')]));
+    }
+
+    async function reviewWithReport(id) {
+        const row = await db.maybe('SELECT * FROM vision_image_reviews WHERE id = $1', [String(id || '')]);
+        if (!row) return null;
+        const report = await operatorReportFor(row.id);
+        const reveals = await listReviewReveals(row.id);
+        return wireReview({ ...row, report, reveals });
+    }
+
+    async function listReviews({ category = null, status = null, limit = 50 } = {}) {
+        const n = Math.min(200, Math.max(1, Number(limit) || 50));
+        const args = []; const where = [];
+        if (category) { args.push(String(category)); where.push(`category = $${args.length}`); }
+        if (status) { args.push(String(status)); where.push(`status = $${args.length}`); }
+        args.push(n);
+        const rows = await db.many(`SELECT * FROM vision_image_reviews ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC, id DESC LIMIT $${args.length}`, args);
+        const reportIds = rows.filter((r) => r.category === 'minor_sexual').map((r) => r.id);
+        const reports = reportIds.length ? await db.many('SELECT * FROM vision_operator_reports WHERE review_id = ANY($1::text[])', [reportIds]) : [];
+        const byReview = new Map(reports.map((r) => [r.review_id, r]));
+        return rows.map((r) => wireReview({ ...r, report: byReview.get(r.id) || null }));
+    }
+
+    async function reviewCounts() {
+        const rows = await db.many('SELECT category, COUNT(*)::int AS n FROM vision_image_reviews GROUP BY category');
+        const out = { fine: 0, sex_acts: 0, minor_sexual: 0, total: 0 };
+        for (const r of rows) { if (out[r.category] != null) out[r.category] = Number(r.n) || 0; out.total += Number(r.n) || 0; }
+        const open = await db.maybe("SELECT COUNT(*)::int AS n FROM vision_operator_reports WHERE status = 'open'");
+        out.reports_open = Number(open && open.n) || 0;
+        return out;
+    }
+
+    async function decideReview(id, { category, plainWords, action, public: isPublic, reviewedBy }) {
+        return wireReview(await db.maybe(
+            `UPDATE vision_image_reviews SET category = $2, plain_words = $3, action = $4, is_public = $5,
+                status = 'decided', reviewed_by = $6, reviewed_at = now() WHERE id = $1 RETURNING *`,
+            [String(id), category, plainWords, action, Boolean(isPublic), reviewedBy],
+        ));
+    }
+
+    async function createOperatorReport({ reviewId, category = 'minor_sexual', objectType = 'unknown', objectId = null, ownerSubject = null, reason = null }) {
+        const id = s.newId('vor');
+        const row = await db.maybe(
+            `INSERT INTO vision_operator_reports (id, review_id, category, object_type, object_id, owner_subject, reason, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT (review_id) DO NOTHING RETURNING *`,
+            [id, String(reviewId), category, String(objectType).slice(0, 80), objectId == null ? null : String(objectId).slice(0, 300), ownerSubject, reason],
+        );
+        return wireReport(row || await db.maybe('SELECT * FROM vision_operator_reports WHERE review_id = $1', [String(reviewId)]));
+    }
+
+    async function operatorReportFor(reviewId) {
+        return wireReport(await db.maybe('SELECT * FROM vision_operator_reports WHERE review_id = $1', [String(reviewId || '')]));
+    }
+
+    async function listOperatorReports({ status = 'open', limit = 50 } = {}) {
+        const n = Math.min(200, Math.max(1, Number(limit) || 50));
+        const args = []; const where = [];
+        if (status) { args.push(String(status)); where.push(`r.status = $${args.length}`); }
+        args.push(n);
+        const rows = await db.many(`SELECT r.* FROM vision_operator_reports r ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY r.created_at DESC, r.id DESC LIMIT $${args.length}`, args);
+        return rows.map(wireReport);
+    }
+
+    async function saveReviewReveal({ reviewId, operatorSubject, kind, expiresAt = null }) {
+        const id = s.newId('virv');
+        return wireReveal(await db.maybe(
+            `INSERT INTO vision_review_reveals (id, review_id, operator_subject, kind, expires_at, revealed_at)
+             VALUES ($1,$2,$3,$4,$5::timestamptz,now()) RETURNING *`,
+            [id, String(reviewId), operatorSubject, kind, expiresAt],
+        ));
+    }
+
+    async function listReviewReveals(reviewId) {
+        const rows = await db.many('SELECT * FROM vision_review_reveals WHERE review_id = $1 ORDER BY revealed_at DESC, id DESC LIMIT 50', [String(reviewId || '')]);
+        return rows.map(wireReveal);
+    }
+
+    async function dismissOperatorReport(reviewId, by) {
+        return wireReport(await db.maybe(
+            `UPDATE vision_operator_reports SET status = 'dismissed', resolved_at = now(), resolved_by = $2
+             WHERE review_id = $1 AND status = 'open' RETURNING *`,
+            [String(reviewId), String(by || 'operator')],
+        ));
+    }
+
+    return { saveAnswer, answerById, answerSubject, listAnswers, saveCompare, saveUiCheck, uiCheckById, uiCheckSubject, benchmarks,
+        saveReview, reviewById, reviewWithReport, listReviews, reviewCounts, decideReview, createOperatorReport,
+        operatorReportFor, listOperatorReports, dismissOperatorReport, saveReviewReveal, listReviewReveals };
 }
 
 module.exports = { createStore, wireAnswer, wireSample, wireUiCheck };

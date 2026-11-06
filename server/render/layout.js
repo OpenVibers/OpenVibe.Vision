@@ -13,6 +13,7 @@ const rooms = require('openvibe-shared/rooms');
 const ovServe = require('openvibe-shared/serve');
 const cache = require('openvibe-shared/cache-policy');
 const { render, esc } = require('./html');
+const { isStaff } = require('../identity/staff');
 
 const NETWORK_URL = 'https://openvibe.network';
 const SITE_NAME = 'OpenVibe.Vision';
@@ -50,10 +51,13 @@ function renderPage(o) {
     const pathNow = o.path || '/';
     const loginNext = encodeURIComponent(pathNow);
     const canonical = `${o.config.baseUrl}${pathNow.split('?')[0]}`;
+    const links = NAV.map((l) => ({ label: l.label, href: l.href, active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) }));
+    // The operator's review queue is not a public tool: only staff see the link (the route itself is staff-only).
+    if (isStaff(viewer)) links.push({ label: 'Review', href: '/review', active: pathNow === '/review' || pathNow.startsWith('/review/') });
     const nav = {
         service: 'vision',
         apiBase: NETWORK_URL,
-        links: NAV.map((l) => ({ label: l.label, href: l.href, active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) })),
+        links,
         history: { type: 'page', title: o.title || SITE_NAME },
         silentLogin: `${o.config.baseUrl}/auth/login?silent=1&next={url}`,
         sessionUrl: '/auth/me',
@@ -80,7 +84,7 @@ function renderPage(o) {
         robots: o.index ? 'index, follow' : 'noindex, nofollow',
         jsonLd: (o.jsonLd || []).filter(Boolean),
         home: '/',
-        navLinks: NAV,
+        navLinks: links,
         navbar: nav,
         footer,
         head: `<meta name="referrer" content="strict-origin-when-cross-origin">
