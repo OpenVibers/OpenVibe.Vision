@@ -97,8 +97,9 @@ function createPageRoutes(ctx) {
     const formError = (message, status = 400) => ({ message, status });
 
     // ── Home ─────────────────────────────────────────────────
-    r.get('/', (req, res) => {
-        const home = views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled });
+    r.get('/', async (req, res) => {
+        const benchmarks = await store.benchmarks({ limit: 6 }).catch(() => []);
+        const home = views.home({ signedIn: Boolean(signedIn(req)), ai: ai.enabled, benchmarks });
         return page(req, res, {
             index: true, cache: PUBLIC_CACHE, title: null,
             description: 'Ask a picture, read text, check a page, find your images and use local face privacy tools with consent for personal matching.',

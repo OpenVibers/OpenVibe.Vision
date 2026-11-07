@@ -24,16 +24,30 @@ function motif() {
 <div class="vi-sc-tabs">${tab(1, 'Read', true)}${tab(2, 'Find')}${tab(3, 'Watch')}</div>
 <div class="vi-sc-panes">
 <div class="vi-sc-pane vi-sc-read"><div class="vi-sc-receipt"><b>OPENVIBE MARKET</b><span>Oat milk<i>3.40</i></span><span>Bread<i>2.10</i></span><span class="vi-sc-total">TOTAL<i>5.50</i></span></div>
-<p class="vi-sc-answer"><b>TOTAL 5.50</b><small>read on this host · $0 · 38 ms</small></p></div>
+<p class="vi-sc-answer"><b>TOTAL 5.50</b><small>read on this host · an example</small></p></div>
 <div class="vi-sc-pane vi-sc-find"><p class="vi-sc-query">the red bike at the beach</p><div class="vi-sc-grid"><span class="vi-sc-ph vi-sc-ph-a"></span><span class="vi-sc-ph vi-sc-ph-b is-hit"><i></i></span><span class="vi-sc-ph vi-sc-ph-c"></span><span class="vi-sc-ph vi-sc-ph-d"></span></div>
-<p class="vi-sc-answer"><b>Your photo, July 12</b><small>only your pictures are searched</small></p></div>
+<p class="vi-sc-answer"><b>Your photo</b><small>only your pictures are searched</small></p></div>
 <div class="vi-sc-pane vi-sc-watch"><div class="vi-sc-cam"><span class="vi-sc-door"></span><span class="vi-sc-box"><em>package</em></span><span class="vi-sc-rec">CAM 1 · 14:02</span></div>
-<p class="vi-sc-answer"><b>A delivery at the door</b><small>told you at 14:02 · nobody identified</small></p></div>
+<p class="vi-sc-answer"><b>A delivery at the door</b><small>an example alert · nobody identified</small></p></div>
 </div>
 </div>`;
 }
 
-function home({ signedIn = false, ai = false } = {}) {
+/** The compare scene: measured public benchmark aggregates when there are any, else the same table labelled Example. */
+function compareScene(benchmarks) {
+    const rows = Array.isArray(benchmarks) ? benchmarks.slice(0, 3) : [];
+    if (!rows.length) {
+        return `<div class="vi-demo-scroll"><table class="vi-demo-table"><caption>Example: one image, three answers</caption><thead><tr><th scope="col">engine</th><th scope="col">answer</th><th scope="col">cost</th><th scope="col">time</th></tr></thead><tbody><tr><td>local OCR</td><td>“TOTAL 5.50”</td><td>0.0000</td><td>38 ms</td></tr><tr><td>pool:fast</td><td>a receipt from a market</td><td>0.0004</td><td>1.1 s</td></tr><tr><td>pool:best</td><td>the total is 5.50</td><td>0.0012</td><td>2.4 s</td></tr></tbody></table></div>`;
+    }
+    const body = rows.map((b) => {
+        const engine = b.provider ? `${b.provider}:${b.model}` : b.model;
+        const cost = Number(b.avg_cost_usd) > 0 ? `$${Number(b.avg_cost_usd).toFixed(4)}` : 'free';
+        return `<tr><td>${esc(engine)}</td><td>${Number(b.samples) || 0} ${Number(b.samples) === 1 ? 'sample' : 'samples'} · ${esc(b.task)}</td><td>${esc(cost)}</td><td>${Number(b.avg_latency_ms) || 0} ms</td></tr>`;
+    }).join('');
+    return `<div class="vi-demo-scroll"><table class="vi-demo-table"><caption>measured compare samples · mean cost and time per engine</caption><thead><tr><th scope="col">engine</th><th scope="col">task · samples</th><th scope="col">mean cost</th><th scope="col">mean time</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function home({ signedIn = false, ai = false, benchmarks = [] } = {}) {
     const tryIt = `<section class="vi-section vi-tasks-wrap" id="vi-try" aria-labelledby="vi-try-h">
 <div class="vi-head-row"><h2 id="vi-try-h">Pick one thing to do</h2><span class="vi-count">${ai ? 'local first, AI when it helps' : 'local engines on this host'}</span></div>
 <ul class="vi-tasklist">
@@ -63,19 +77,19 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
             {
                 title: 'A receipt, read for nothing',
                 text: 'The local reader (Tesseract, on this host) reads the words a receipt actually needs: merchant, date, lines, total. No image leaves the machine and no model is called. Only when the local pass finds no usable text does a signed-in person\'s AI fallback run, and the answer says so.',
-                html: `<div class="vi-demo-receipt"><span class="vi-demo-kicker">LOCAL OCR</span><b>OPENVIBE MARKET</b><span>2026-10-28 · 14:02</span><span>Oat milk 3.40</span><span>Bread 2.10</span><strong>TOTAL 5.50</strong><small>confidence 91.4 · 0.0000 USD · 38 ms</small></div>`,
+                html: `<div class="vi-demo-receipt"><span class="vi-demo-kicker">Example · local OCR</span><b>OPENVIBE MARKET</b><span>a date</span><span>Oat milk 3.40</span><span>Bread 2.10</span><strong>TOTAL 5.50</strong><small>example values · not a measured result</small></div>`,
                 action: { href: '/ocr', label: 'Read a picture' },
             },
             {
                 title: 'The same image, side by side',
                 text: 'A compare sends one image to the local reader and to OpenVibe.AI. AI\'s router is the authority: the provider and model shown are the ones that answered, never the hint. Cost comes from AI\'s own run, latency is measured here.',
-                html: `<div class="vi-demo-scroll"><table class="vi-demo-table"><caption>one image, three answers</caption><thead><tr><th scope="col">engine</th><th scope="col">answer</th><th scope="col">cost</th><th scope="col">time</th></tr></thead><tbody><tr><td>local OCR</td><td>“TOTAL 5.50”</td><td>0.0000</td><td>38 ms</td></tr><tr><td>pool:fast</td><td>a receipt from a market</td><td>0.0004</td><td>1.1 s</td></tr><tr><td>pool:best</td><td>the total is 5.50</td><td>0.0012</td><td>2.4 s</td></tr></tbody></table></div>`,
+                html: compareScene(benchmarks),
                 action: { href: '/compare', label: 'Run a compare' },
             },
             {
                 title: 'The UI check catches the overflow',
                 text: 'Drop in HTML, a page URL or a screenshot. The static pass reads the boxes and the colours: a container wider than the viewport, nowrap text clipped by its box, body text under 4.5:1, positioned boxes on top of each other, a z-index with no effect. Arena calls the same API after it generates a page.',
-                html: `<div class="vi-demo-check"><div class="vi-demo-page"><span class="vi-demo-overflow">this card is 1400px wide</span><span class="vi-demo-clip">a headline that gets cut off at the edge</span></div><ul><li class="is-bad"><b>overflow</b><span>1400px in a 390px view</span></li><li class="is-bad"><b>cut off</b><span>nowrap inside 120px</span></li><li class="is-bad"><b>contrast</b><span>2.4:1, needs 4.5:1</span></li></ul></div>`,
+                html: `<div class="vi-demo-check"><span class="vi-demo-kicker">Example</span><div class="vi-demo-page"><span class="vi-demo-overflow">this card is 1400px wide</span><span class="vi-demo-clip">a headline that gets cut off at the edge</span></div><ul><li class="is-bad"><b>overflow</b><span>1400px in a 390px view</span></li><li class="is-bad"><b>cut off</b><span>nowrap inside 120px</span></li><li class="is-bad"><b>contrast</b><span>2.4:1, needs 4.5:1</span></li></ul></div>`,
                 action: { href: '/ui-check', label: 'Check a page' },
             },
             {
