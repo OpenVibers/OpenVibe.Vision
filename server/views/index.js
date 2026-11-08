@@ -67,7 +67,7 @@ ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work 
         room: 'vision',
         hero: {
             title: 'See it. Use it everywhere.',
-            lede: 'Point Vision at a picture and get something done: read a receipt, find your own photo by words, or get told when your camera sees a delivery. Local engines answer first, and every answer says what it cost.',
+            lede: 'Point Vision at a picture and get something done: read a receipt, find a photo by words, or hear when your camera sees a delivery. Every answer says what it cost.',
             start: { href: '/ask', label: 'Look at a picture' },
             chips: [{ label: 'Read', href: '/read' }, { label: 'Find', href: '/find' }, { label: 'Watch', href: '/watch' }, { label: 'People', href: '/people' }],
             motif: motif(),
