@@ -2,6 +2,9 @@
 
 > See with the best model for the job.
 
+**Live site:** https://openvibe.vision · **API docs:** https://openvibe.services · **For AI:** https://openvibe.vision/llms.txt
+**Run it:** `npm ci && npm run dev` (Node 22 or newer) · **Tests:** `npm test`
+
 **Status:** v1, the §5.8b faces work and the network tools written and tested (see [STATUS.json](STATUS.json)).
 **Domain:** `openvibe.vision` · **Port:** 5130 · **Service id:** `vision` · **Env prefix:** `VISION`
 **License:** AGPL-3.0-only (same as every OpenVibe service).
