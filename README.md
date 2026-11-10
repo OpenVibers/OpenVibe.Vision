@@ -325,7 +325,7 @@ Private embeddings are JSON vectors in PostgreSQL, scored in JavaScript after a 
 Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEARCH_URL`, both fixed operator URLs returning JSON `{offers:[{title,url,price?}]}` or `{results:[...]}`. Deals currently exposes public `GET /api/v1/offers` without a query filter, and its `/search?q=` is an HTML page; open.shoes has no implemented API in this workspace yet. Until those rooms expose a structured search endpoint, `/product` returns the description and embedding with an empty `offers` list and a warning. It does not fabricate matches.
 
 <!-- versions:start -->
-- openvibe-contracts: v0.373.0
+- openvibe-contracts: v0.384.0
 - openvibe-sdk: v0.125.0
 - openvibe-shared: v4.179.0
 <!-- versions:end -->
