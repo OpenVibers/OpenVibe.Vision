@@ -26,7 +26,7 @@ const PLANTED = '<style>body{background:#fff;color:#999}.wide{width:1600px}</sty
             assert.strictEqual(r.status, 200);
             assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=60');
             assert.strictEqual(r.headers.get('vary'), 'Cookie');
-            for (const marker of ['id="vi-home"', 'id="vi-try"', 'class="sc-room-scenes"', '<noscript><nav', '<footer id="ov-footer"', '<main id="main"', '/ask', '/ocr', '/compare', '/ui-check']) assert.ok(r.text.includes(marker), marker);
+            for (const marker of ['id="vi-home"', 'id="vi-try"', 'class="sc-room-scenes"', '<div id="navbar-mount"><nav', '<footer id="ov-footer"', '<main id="main"', '/ask', '/ocr', '/compare', '/ui-check']) assert.ok(r.text.includes(marker), marker);
             const types = jsonLd(r.text).map((x) => x['@type']);
             assert.ok(types.includes('WebSite'), types.join(','));
             assert.ok(types.includes('WebApplication'), types.join(','));
