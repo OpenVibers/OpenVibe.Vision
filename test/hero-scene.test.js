@@ -22,5 +22,5 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'vision.
 assert.match(css, /@media \(max-width: 759px\) \{ \.sc-room-pic:has\(\.vi-scene\) \{ position: static;[^}]*opacity: 1;/, 'in the flow on a phone, full strength');
 assert.ok(!/\.vi-sc[\w-]*[^{]*\{[^}]*display:\s*none/.test(css), 'nothing in the scene is display:none');
 assert.match(css, /\.vi-scene:has\(\[data-ov-ghost-step="2"\]\[data-ov-ghost-on\]\) \.vi-sc-find/, 'the chosen step shows its pane');
-assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.vi-sc-pane, \.vi-sc-tab \{ transition: none; \} \}/);
+assert.ok(!/prefers-reduced-motion|data-ov-motion=reduced/.test(css), 'Calm keeps the scene: its panes and tabs keep their transitions, only motion off stops them');
 console.log('hero scene: all checks passed');
