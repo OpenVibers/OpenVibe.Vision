@@ -39,6 +39,17 @@ const PLANTED = '<style>body{background:#fff;color:#999}.wide{width:1600px}</sty
             assert.strictEqual(r.headers.get('vary'), 'Cookie');
         });
 
+        await check('image forms serve the shared upload picker with the server image limit', async () => {
+            for (const path of ['/ask', '/ocr', '/compare', '/ui-check', '/find', '/read', '/watch', '/people']) {
+                const page = await t.get(path, { as: alice });
+                assert.strictEqual(page.status, 200, path);
+                assert.match(page.text, /ov-upload\.css/, path);
+                assert.match(page.text, /ov-upload\.js/, path);
+                assert.match(page.text, /js\/upload-picker\.js/, path);
+                assert.match(page.text, /name="vision-image-max-bytes"/, path);
+            }
+        });
+
         await check('POST /ask saves an answer and redirects to its private page', async () => {
             const r = await t.get('/ask', { as: alice, multipart: { fields: { task: 'describe', question: 'What is this?' }, image: png } });
             assert.strictEqual(r.status, 303, r.text);

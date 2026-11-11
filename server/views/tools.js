@@ -4,8 +4,8 @@
  * The three task pages: /find, /read and /watch (plan 2026-10-28 §5.8/§5.8b).
  *
  * Each page is one job: one input or drop zone, the result directly under it, and examples a person can tap.
- * Everything is a plain server-rendered form, so it works without JavaScript. The drop zone is the kit's (kit.drop):
- * kit-web.js adds drag and drop, paste and, on a phone, "Take a photo"; /read reads a picture as soon as it is chosen. Power options sit inside a <details> one tap down, and the API notes live at the
+ * Everything is a plain server-rendered form, so it works without JavaScript. The shared upload kit
+ * enhances each native file input; /read reads a picture as soon as it is chosen. Power options sit inside a <details> one tap down, and the API notes live at the
  * bottom of the page instead of above the tool.
  */
 const { esc } = require('../render/html');
@@ -48,9 +48,9 @@ function header({ kicker, title, lede }) {
 }
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,image/avif';
-/** The picture's way in (kit.drop): choose, drop, paste, or take a photo on a phone. auto: send the form at once. */
+/** Native fallback enhanced by OVUpload.picker; auto sends /read when a file is chosen. */
 const dropZone = ({ id, name = 'image', label = 'Drop a picture here', hint = 'or choose a file', auto = false }) =>
-    kit.drop({ id, name, accept: ACCEPT, label, hint, camera: true, auto });
+    `<label class="vi-field"><span>${esc(label)}</span><input type="file" id="${esc(id)}" name="${esc(name)}" accept="${ACCEPT}"${auto ? ' data-upload-auto' : ''}></label><p class="vi-fine">${esc(hint)}</p>`;
 
 function examples(links) {
     return `<div class="vi-examples"><span class="vi-examples-label">Try an example</span>${links.join('')}</div>`;
