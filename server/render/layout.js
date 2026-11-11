@@ -94,10 +94,14 @@ ${appIcon.headTags({ site: 'vision' })}
 <link rel="stylesheet" href="${ovServe.url('kit-data.css')}">
 <link rel="stylesheet" href="${ovServe.url('room.css')}">
 <link rel="stylesheet" href="${ovServe.url('showcase.css')}">
+<link rel="stylesheet" href="${ovServe.url('ov-upload.css')}">
 <link rel="stylesheet" href="${asset('css/vision.css')}">
+<meta name="vision-image-max-bytes" content="${o.config.images.maxMb * 1024 * 1024}">
 <script src="${ovServe.url('motion.js')}" defer></script>
 <script src="${ovServe.url('kit-web.js')}" defer></script>
 <script src="${ovServe.url('kit-data-web.js')}" defer></script>
+<script src="${ovServe.url('ov-upload.js')}" defer></script>
+<script src="${asset('js/upload-picker.js')}" defer></script>
 ${render(scripts)}
 ${(o.inlineStyles || []).map((css) => `<style>${css}</style>`).join('\n')}
 <meta name="ov-boost" content="vision@${require('./html').esc(RELEASE)}">
