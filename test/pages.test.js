@@ -121,7 +121,7 @@ const PLANTED = '<style>body{background:#fff;color:#999}.wide{width:1600px}</sty
             assert.strictEqual(hashed.headers.get('cache-control'), 'public, max-age=31536000, immutable');
             const wrong = await t.get('/css/vision.css?v=deadbeefdeadbeef');
             assert.strictEqual(wrong.status, 200);
-            assert.strictEqual(wrong.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=86400');
+            assert.strictEqual(wrong.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=300');
             const robots = await t.get('/robots.txt');
             assert.match(robots.text, /Disallow: \/api\//);
             assert.match(robots.text, /Disallow: \/a\//);
