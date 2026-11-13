@@ -51,11 +51,11 @@ function home({ signedIn = false, ai = false, benchmarks = [] } = {}) {
     const tryIt = `<section class="vi-section vi-tasks-wrap" id="vi-try" aria-labelledby="vi-try-h">
 <div class="vi-head-row"><h2 id="vi-try-h">Pick one thing to do</h2><span class="vi-count">${ai ? 'local first, AI when it helps' : 'local engines on this host'}</span></div>
 <ul class="vi-tasklist">
-<li><a href="/ask"><span class="vi-task-txt"><b>Look at a picture</b><span>Ask what it shows, read it, translate it or count something.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
-<li><a href="/read"><span class="vi-task-txt"><b>Read a receipt or a sign</b><span>The words on this host, for nothing, with the picture not stored.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
-<li><a href="/find"><span class="vi-task-txt"><b>Find your own picture</b><span>Describe it and search only your pictures. Nobody else sees the results.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
-<li><a href="/watch"><span class="vi-task-txt"><b>Watch a camera still</b><span>Name a package, a delivery, a person or a car in a picture.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
-<li><a href="/people"><span class="vi-task-txt"><b>Choose what faces may do</b><span>Four separate choices, each off until you sign it. Never a stranger lookup.</span></span><span class="vi-go" aria-hidden="true">&rarr;</span></a></li>
+<li><a href="/ask"><span class="vi-task-txt"><b>Look at a picture</b><span>Ask what it shows, read it, translate it or count something.</span></span><span class="vi-go" aria-hidden="true"><i data-ov-icon="arrow-right"></i></span></a></li>
+<li><a href="/read"><span class="vi-task-txt"><b>Read a receipt or a sign</b><span>The words on this host, for nothing, with the picture not stored.</span></span><span class="vi-go" aria-hidden="true"><i data-ov-icon="arrow-right"></i></span></a></li>
+<li><a href="/find"><span class="vi-task-txt"><b>Find your own picture</b><span>Describe it and search only your pictures. Nobody else sees the results.</span></span><span class="vi-go" aria-hidden="true"><i data-ov-icon="arrow-right"></i></span></a></li>
+<li><a href="/watch"><span class="vi-task-txt"><b>Watch a camera still</b><span>Name a package, a delivery, a person or a car in a picture.</span></span><span class="vi-go" aria-hidden="true"><i data-ov-icon="arrow-right"></i></span></a></li>
+<li><a href="/people"><span class="vi-task-txt"><b>Choose what faces may do</b><span>Four separate choices, each off until you sign it. Never a stranger lookup.</span></span><span class="vi-go" aria-hidden="true"><i data-ov-icon="arrow-right"></i></span></a></li>
 </ul>
 <div class="vi-more-row"><span>Need more?</span> <a href="/compare">Compare models</a> <span aria-hidden="true">·</span> <a href="/ui-check">Check a page</a> <span aria-hidden="true">·</span> <a href="/ocr">Raw OCR</a></div>
 ${signedIn ? '' : '<p class="vi-fine">Reading, watching and the page check work without an account. Saving answers, your picture search and faces need <a href="/auth/login?next=%2F">an OpenVibe sign-in</a>.</p>'}
