@@ -327,5 +327,5 @@ Offer discovery is configured by `VISION_DEALS_SEARCH_URL` and `VISION_SHOES_SEA
 <!-- versions:start -->
 - openvibe-contracts: v0.419.0
 - openvibe-sdk: v0.167.0
-- openvibe-shared: v4.244.0
+- openvibe-shared: v4.247.0
 <!-- versions:end -->
