@@ -9,11 +9,11 @@
   "port": "5130",
   "domain": "openvibe.vision",
   "contracts": "openvibe-contracts v0.419.0",
-  "sdk": "openvibe-sdk v0.167.0",
+  "sdk": "openvibe-sdk v0.168.0",
   "shared": "openvibe-shared v4.247.0",
   "packages": [
     "openvibe-contracts v0.419.0",
-    "openvibe-sdk v0.167.0",
+    "openvibe-sdk v0.168.0",
     "openvibe-shared v4.247.0"
   ],
   "capabilities": [
@@ -97,5 +97,5 @@
     "deploy files"
   ],
   "deployment": "not deployed: the unit and nginx vhost are deploy/systemd/openvibe-vision.service and deploy/nginx/openvibe.vision.conf",
-  "updated": "2026-11-13"
+  "updated": "2026-11-14"
 }
