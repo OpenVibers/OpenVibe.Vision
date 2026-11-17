@@ -25,6 +25,7 @@ const TOOLS = Object.freeze([
     { name: 'vision.detect_objects', description: 'Detect requested object classes in a source you own.', inputSchema: input({ image: image.image, classes: { type: 'array', items: { type: 'string' } }, source_ref: { type: 'string' } }, ['image', 'classes']) },
     { name: 'vision.blur_faces', description: 'Blur faces without identifying anyone.', inputSchema: input(image) },
     { name: 'vision.check_ui', description: 'Check a page or screenshot for layout and accessibility faults.', inputSchema: input({ ...image, html: { type: 'string' }, url: { type: 'string' }, viewport: { type: 'object' } }) },
+    { name: 'vision.review_ui', description: 'Review a screenshot of an interface: the free pixel check, then up to three vision models at once, each holding it to OpenVibe\'s design rules and checklist alone; findings merged with how many models saw each, ranked by severity and agreement, with each model\'s cost and time.', inputSchema: input({ ...image, models: { type: 'array', items: { type: 'string' }, maxItems: 3 }, viewport: { type: 'object' }, theme: { type: 'string', enum: ['light', 'dark'] }, focus: { type: 'string', maxLength: 400 } }) },
     { name: 'vision.compare_models', description: 'Compare OCR with up to three routed model hints.', inputSchema: input({ ...image, question: { type: 'string' }, models: { type: 'array', items: { type: 'string' } } }) },
     { name: 'vision.get_job', description: 'Get a saved answer or UI check that you may read.', inputSchema: input({ id: { type: 'string' } }, ['id']) },
 ]);
@@ -36,14 +37,14 @@ const ACCESS = Object.freeze({
     'vision.identify_landmark': ['vision.image.ask'], 'vision.screenshot_components': ['vision.image.ask'],
     'vision.search_my_media': ['vision.media.find', 'person'], 'vision.describe_clip': ['vision.video.moments', 'person'],
     'vision.detect_objects': ['vision.camera.watch', 'person'], 'vision.blur_faces': ['vision.face.blur', 'anonymous'],
-    'vision.check_ui': ['vision.ui.check', 'anonymous'], 'vision.compare_models': ['vision.model.compare'],
+    'vision.check_ui': ['vision.ui.check', 'anonymous'], 'vision.compare_models': ['vision.model.compare'], 'vision.review_ui': ['vision.model.compare'],
     'vision.get_job': ['vision.image.ask'],
 });
 const EVENT_PATH = Object.freeze({
     'vision.ask_image': '/ask', 'vision.read_text': '/ocr', 'vision.translate_sign': '/ask',
     'vision.meal': '/ask', 'vision.describe_surroundings': '/ask', 'vision.identify_plant': '/ask', 'vision.identify_landmark': '/ask', 'vision.screenshot_components': '/ask',
     'vision.find_similar': '/find', 'vision.search_my_media': '/find', 'vision.describe_clip': '/moments',
-    'vision.detect_objects': '/watch', 'vision.check_ui': '/ui-check', 'vision.compare_models': '/compare',
+    'vision.detect_objects': '/watch', 'vision.check_ui': '/ui-check', 'vision.compare_models': '/compare', 'vision.review_ui': '/ui-review',
 });
 
 // VIS-6 wave 2: each tool is one of the service's prompted tasks (server/vision/ai.js TASK_PROMPTS).
@@ -126,6 +127,11 @@ async function invoke(name, args, req, ctx) {
             return { check: await check({ ...source, viewport, config, fetchImpl, ocr, maxFindings: config.ui.maxFindings }) };
         }
         case 'vision.compare_models': return await vision.compare({ ...request, image: await load(), question: args.question || '', task: 'ask', models: args.models || [] });
+        case 'vision.review_ui': {
+            const viewport = args.viewport && typeof args.viewport === 'object' ? args.viewport : null;
+            return { review: await vision.reviewUi({ requester: request.requester, image: await load(), viewport, theme: args.theme === 'dark' || args.theme === 'light' ? args.theme : null,
+                models: Array.isArray(args.models) ? args.models.slice(0, 3) : [], focus: typeof args.focus === 'string' ? args.focus.slice(0, 400) : '' }) };
+        }
         case 'vision.get_job': {
             const id = String(args.id || '');
             const ui = id.startsWith('vuc_');

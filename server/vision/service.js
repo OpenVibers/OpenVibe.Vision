@@ -205,7 +205,58 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
         };
     }
 
-    return { ask, ocr: ocrImage, compare, isReadTask, TASKS };
+    // ── The UI review panel (plan §AD.25; server/vision/ui-review.js): the gate, then a panel of vision models ──
+    let rulesKept = null; let rulesAt = 0; let rulesFailed = 0;
+    async function designRules() {
+        const now = Date.now();
+        if (rulesKept && now - rulesAt < 10 * 60 * 1000) return rulesKept;
+        if (rulesFailed && now - rulesFailed < 60 * 1000) return rulesKept || [];
+        const url = config.design && config.design.rulesUrl;
+        if (!url) return [];
+        try {
+            const r = await fetch(url, { headers: { Accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(6000) });
+            if (!r.ok) throw new Error(`the rules answered ${r.status}`);
+            rulesKept = require('./ui-review').rulesFrom(await r.json()); rulesAt = now; rulesFailed = 0;
+        } catch (err) {
+            rulesFailed = now;
+            if (log && log.warn) log.warn(`[vision] Design's rules did not come: ${err && err.message}`);
+        }
+        return rulesKept || [];
+    }
+
+    /**
+     * reviewUi: one screenshot held to OpenVibe's design rules by up to three vision models at once, after the free
+     * pixel check. models: hints as compare takes them (none: AI picks one); rules: the caller's own list, else
+     * Design's; focus: what the person wants looked at. Nothing is stored: the answer is the review.
+     */
+    async function reviewUi({ requester, image, viewport = null, theme = null, models = [], rules = null, focus = '' }) {
+        if (!ai.enabled) throw new VisionError(503, 'vision.ai_unavailable', 'the review panel needs OpenVibe.AI, which is not configured here');
+        const R = require('./ui-review');
+        const vp = viewport && Number(viewport.w) > 0 ? { w: Math.round(Number(viewport.w)), h: Math.round(Number(viewport.h) || 800) } : { w: 1280, h: 800 };
+        const gate = await require('./ui-check').checkScreenshot(image.buffer, { viewport: vp, ocr, maxFindings: 50 });
+        const ruleList = Array.isArray(rules) && rules.length ? R.rulesFrom(rules) : await designRules();
+        const question = R.promptFor({ rules: ruleList, checks: gate.findings, focus, viewport: vp, theme });
+        const hints = (Array.isArray(models) ? models : []).map((m) => String(m || '').trim()).filter(Boolean).slice(0, maxAiSamples);
+        const panel = await Promise.all((hints.length ? hints : [null]).map(async (hint) => {
+            const a = await aiResult(image, 'ask', { question, model: hint });
+            const parsed = a.ok ? R.parseFindings(a.text) : { ok: false, works: [], findings: [] };
+            return {
+                requested_model: hint, model: a.model, provider: a.provider, ok: a.ok && parsed.ok,
+                cost_usd: Number(a.costUsd) || 0, latency_ms: a.ms, works: parsed.works, findings: parsed.findings,
+                error: !a.ok ? (a.detail || a.errorCode || 'the model did not answer') : parsed.ok ? null : 'the model did not answer in the asked form',
+            };
+        }));
+        if (log && log.info) log.info(`[vision] ui review for ${requester || 'anonymous'}: ${panel.length} critic(s)`);
+        return {
+            viewport: vp, theme: theme || null,
+            gate: { findings: gate.findings, counts: gate.counts, warnings: gate.warnings },
+            panel, merged: R.merge(panel), rules_checked: ruleList.length,
+            cost_usd: Math.round(panel.reduce((t, p) => t + p.cost_usd, 0) * 1e6) / 1e6,
+            note: ruleList.length ? null : 'OpenVibe.Design\'s rules did not answer: the critics used the checklist alone',
+        };
+    }
+
+    return { ask, ocr: ocrImage, compare, reviewUi, isReadTask, TASKS };
 }
 
 module.exports = { createVision, VisionError, isReadTask, asTask, TASKS };

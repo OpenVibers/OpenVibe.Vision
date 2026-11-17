@@ -18,7 +18,7 @@ const rpc = (method, params = {}, id = 1) => ({ jsonrpc: '2.0', id, method, para
             assert.strictEqual(init.status, 200, init.text);
             assert.strictEqual(init.json().result.serverInfo.name, 'openvibe-vision');
             const list = await t.get('/mcp', { json: rpc('tools/list') });
-            assert.strictEqual(list.json().result.tools.length, 16);
+            assert.strictEqual(list.json().result.tools.length, 17);
             for (const name of ['vision.meal', 'vision.describe_surroundings', 'vision.identify_plant', 'vision.identify_landmark', 'vision.screenshot_components']) {
                 assert.ok(list.json().result.tools.some((x) => x.name === name), `VIS-6 tool ${name}`);
             }
