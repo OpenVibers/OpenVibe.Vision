@@ -204,6 +204,22 @@ function createApi(ctx) {
         }, 201);
     });
 
+    // ── UI review: a screenshot, the pixel check, then a panel of vision models on Design's rules (plan §AD.25) ──
+    r.post('/ui-review', principal.optional('vision.model.compare'), attachUpload, async (req, res) => {
+        const b = bodyOf(req);
+        const models = Array.isArray(b.models) ? b.models : (typeof b.models === 'string' && b.models.trim() ? b.models.split(',').map((x) => x.trim()) : []);
+        if (!req.file && !b.image && !b.image_url) return invalid(res, 'send a screenshot: an image file, an image data URL, or image_url');
+        return run(res, async () => {
+            const image = await imageOf(req);
+            const out = await vision.reviewUi({
+                requester: req.principal.requester || 'anonymous', image, viewport: viewportOf(req),
+                theme: b.theme === 'dark' || b.theme === 'light' ? b.theme : null, models,
+                rules: Array.isArray(b.rules) ? b.rules : null, focus: typeof b.focus === 'string' ? b.focus.slice(0, 400) : '',
+            });
+            return { review: out };
+        }, 201);
+    });
+
     // ── UI check: HTML, URL or screenshot; local only ──────
     r.post('/ui-check', attachUpload, principal.optional('vision.ui.check', { allowAnonymous: true }), async (req, res) => {
         const b = bodyOf(req);

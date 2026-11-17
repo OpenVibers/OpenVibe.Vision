@@ -178,7 +178,7 @@ async function startAi({ defaultModel = 'mock-vision-one', provider = 'mock', co
             const asked = String(body.model || defaultModel);
             const hasImage = JSON.stringify(body.messages || []).includes('image_url');
             const prompt = JSON.stringify(body.messages || []);
-            let out = state.text;
+            let out = typeof state.text === 'function' ? state.text(asked, prompt) : state.text;
             if (out == null) {
                 if (!hasImage) out = 'No image was attached.';
                 else if (/Read every visible piece of text|Read all visible text/.test(prompt)) out = 'HELLO VISION\nTOTAL 5.50';
@@ -204,7 +204,7 @@ async function startAi({ defaultModel = 'mock-vision-one', provider = 'mock', co
     return {
         url: srv.url, requests: state.requests,
         setFail(v) { state.fail = Boolean(v); },
-        setText(v) { state.text = v == null ? null : String(v); },
+        setText(v) { state.text = v == null ? null : typeof v === 'function' ? v : String(v); },
         close: srv.close,
     };
 }

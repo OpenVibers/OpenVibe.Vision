@@ -24,6 +24,9 @@ overflow, cut-off text, low contrast, overlap and layering faults as JSON. Face 
 - **Compare models side by side.** One image, the local reader and one to three AI model hints. AI's router is the
   authority: `requested_model` is only the hint, `model`/`provider` are what AI says answered. Each sample records
   cost and latency; `GET /api/v1/benchmarks` aggregates them with no subject or answer text.
+- **The UI review panel (plan §AD.25).** `POST /api/v1/ui-review` (MCP `vision.review_ui`): one screenshot, the free
+  pixel check, then up to three vision models at once, each alone with OpenVibe.Design's rules and the checklist; the
+  findings merged with how many critics saw each, ranked by severity and agreement, each critic's cost and time beside it.
 - **The UI check as an API.** `POST /api/v1/ui-check` is what Design's Arena will call, with a service token holding
   `vision.ui.check`. It also works for a signed-in person and, for HTML/URL/screenshot, anonymously.
 - **Consent-scoped faces, no looks in AI text.** Face detection and blur are open privacy tools. Matching requires a separate signed consent for each purpose. Public AI text is passed through `noLooks`;
@@ -114,7 +117,7 @@ private media and face identity operations also require the verified owner or th
 |---|---|---|
 | `vision.image.ask` | `POST /api/v1/ask`, `GET /api/v1/answers/:id` | a first-party service or a person |
 | `vision.text.read` | `POST /api/v1/ocr` (the AI fallback also needs a person or this grant) | a first-party service or a person |
-| `vision.model.compare` | `POST /api/v1/compare` | a first-party service or a person |
+| `vision.model.compare` | `POST /api/v1/compare`, `POST /api/v1/ui-review` | a first-party service or a person |
 | `vision.ui.check` | `POST /api/v1/ui-check`, `GET /api/v1/ui-checks/:id` | **OpenVibe.Design's Arena**, or a person |
 | `vision.face.cast.match` | `POST /api/v1/faces/cast/match` (a signed `channel_id` claim must match the request) | **OpenVibe.Live**, or a person inspecting their own tags |
 | `vision.alt.write` | `POST /api/v1/alt` | Pics, Media and Chat |

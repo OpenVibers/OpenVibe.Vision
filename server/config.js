@@ -125,6 +125,10 @@ function load(env = process.env) {
             allowPrivate: env.VISION_ALLOW_PRIVATE_URLS === '1' || env.VISION_ALLOW_PRIVATE_URLS === 'true',
             maxFindings: Math.min(500, Math.max(10, int(env.VISION_UI_MAX_FINDINGS, 200))),
         },
+        // The UI review panel holds a screenshot to openvibe.design's rules (plan §AD.25), read here and kept ten minutes.
+        design: {
+            rulesUrl: env.VISION_DESIGN_RULES_URL || 'https://openvibe.design/api/v1/rules',
+        },
     };
 }
 
