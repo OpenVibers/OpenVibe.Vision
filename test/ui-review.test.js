@@ -62,6 +62,19 @@ const TWO = `Here is my review:\n${JSON.stringify({ works: [], findings: [
             assert.ok(prompts.every(([, p]) => /targets-44/.test(p) && /JSON only/.test(p) && !/A spinner turns/.test(p)), 'each critic alone, never another\'s answer');
         });
 
+        await check('Design\'s whole rule list reaches the model, its JSON form included (11-17: cut at 2000 characters, every critic answered in prose)', async () => {
+            const many = Array.from({ length: 90 }, (_, i) => ({ id: `rule-${i}`, rule: `Rule number ${i}: something a screen must do, said in a long enough sentence to count.`, area: 'phone' }));
+            const prompts = [];
+            t.aiServer.setText((model, prompt) => { prompts.push(prompt); return ONE; });
+            const v = (await t.get('/api/v1/ui-review', { as: user, json: { image, models: ['mock:one'], rules: many } })).json().review;
+            t.aiServer.setText(null);
+            assert.ok(prompts[0].length > 8000, `the prompt is ${prompts[0].length} characters`);
+            assert.match(prompts[0], /rule-89: Rule number 89/, 'the last rule is there');
+            assert.match(prompts[0], /Answer with JSON only/, 'and the answer\'s form after it');
+            assert.match(prompts[0], /You are reviewing a screenshot[^\\]*one JSON object/, 'the form is named in the first sentence too');
+            assert.strictEqual(v.panel[0].ok, true);
+        });
+
         await check('a critic that fails is said, and the others still answer', async () => {
             t.aiServer.setText((model) => (model === 'mock:two' ? 'I cannot do JSON today.' : ONE));
             const v = (await t.get('/api/v1/ui-review', { as: user, json: { image, models: ['mock:one', 'mock:two'], rules: RULES } })).json().review;

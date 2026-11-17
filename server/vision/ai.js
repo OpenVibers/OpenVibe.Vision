@@ -125,9 +125,10 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
      * One image question through AI. opts: dataUrl, task, question, model (a hint), target.
      * Returns the cleaned text plus AI's own provenance and usage. Throws AiError.
      */
-    async function answer({ dataUrl, task = 'ask', question = '', model = null, target = null, maxTokens = null, temperature = null } = {}) {
+    async function answer({ dataUrl, task = 'ask', question = '', model = null, target = null, maxTokens = null, temperature = null, maxQuestion = 2000 } = {}) {
         const prompt = TASK_PROMPTS[task] || TASK_PROMPTS.ask;
-        const asked = String(question || '').trim().slice(0, 2000);
+        // A person's question is 2000 characters at most; Vision's own longer prompts (the UI review's rules) say so.
+        const asked = String(question || '').trim().slice(0, Math.min(16000, Math.max(200, Number(maxQuestion) || 2000)));
         const body = {
             // `model` is documented as a hint; AI's router picks and reports. Including it keeps the request honest.
             ...(model ? { model: String(model).slice(0, 120) } : {}),
