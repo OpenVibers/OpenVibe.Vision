@@ -65,11 +65,11 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
         }));
     }
 
-    async function aiResult(image, task, { question = null, model = null } = {}) {
+    async function aiResult(image, task, { question = null, model = null, maxQuestion, maxTokens } = {}) {
         const normal = await forModel(image.buffer);
         const started = Date.now();
         try {
-            const a = await ai.answer({ dataUrl: normal.dataUrl, task, question, model });
+            const a = await ai.answer({ dataUrl: normal.dataUrl, task, question, model, maxQuestion, maxTokens });
             return {
                 engine: 'ai', ok: true, text: a.text, model: a.model, provider: a.provider, route: a.route,
                 reason: a.reason, costUsd: a.costUsd, ms: a.ms || (Date.now() - started), errorCode: null,
@@ -238,7 +238,9 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
         const question = R.promptFor({ rules: ruleList, checks: gate.findings, focus, viewport: vp, theme });
         const hints = (Array.isArray(models) ? models : []).map((m) => String(m || '').trim()).filter(Boolean).slice(0, maxAiSamples);
         const panel = await Promise.all((hints.length ? hints : [null]).map(async (hint) => {
-            const a = await aiResult(image, 'ask', { question, model: hint });
+            // The whole prompt (Design's rules run to 8000 characters; 11-17: cut at 2000, the JSON instruction at its
+            // end was lost and every critic answered in prose) and room for the findings.
+            const a = await aiResult(image, 'ask', { question, model: hint, maxQuestion: 16000, maxTokens: 1500 });
             const parsed = a.ok ? R.parseFindings(a.text) : { ok: false, works: [], findings: [] };
             return {
                 requested_model: hint, model: a.model, provider: a.provider, ok: a.ok && parsed.ok,

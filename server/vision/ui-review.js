@@ -37,7 +37,7 @@ function rulesFrom(doc) {
 function promptFor({ rules = [], checks = [], focus = '', viewport = null, theme = null } = {}) {
     const vp = viewport && viewport.w ? `${viewport.w}×${viewport.h || '?'} px` : 'unknown size';
     const lines = [
-        `You are reviewing a screenshot of an interface (a ${vp} view${theme ? `, ${theme} theme` : ''}). Judge only what you can see in the picture.`,
+        `You are reviewing a screenshot of an interface (a ${vp} view${theme ? `, ${theme} theme` : ''}). Judge only what you can see in the picture. Your answer is one JSON object, in the form given at the end.`,
         'Hold it to the checklist: nothing sticks out sideways or is cut off; touch targets at least 44 px; text at least 12 px; no native select, checkbox, radio or file controls; no "Load more" button; icons fill their place and sit centred; loading shows the OpenVibe mark, never a spinner; empty and error states say what to do next; text readable against its background in this theme; one primary action per view; plain words, no internal names.',
     ];
     const rs = rulesFrom(rules).slice(0, MAX_RULES);
