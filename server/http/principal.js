@@ -59,11 +59,24 @@ function sameOrigin(req, baseUrl) {
 }
 
 function createPrincipal({ config, keys }) {
-    async function resolve(req) {
+    /**
+     * resolve(req, { delegated }): with delegated (only /mcp asks), a delegated person token (SDK 0.187,
+     * openvibe-sdk/auth/delegated) that names Vision is the person, never staff, marked `delegated: { by, scope }`: an
+     * Apps-page key with a grant in Vision, through Connect's /mcp/all. Everywhere else it stays a typed token, refused.
+     */
+    async function resolve(req, { delegated = false } = {}) {
         const header = String(req.headers.authorization || '');
         if (header.startsWith('Bearer ')) {
             const token = header.slice(7).trim();
             const payload = decodePayload(token);
+            if (delegated && payload && payload.typ === 'delegated') {
+                let claims;
+                try {
+                    claims = await require('openvibe-sdk/auth').verifyUserToken(token, { jwks: keys.client, issuer: config.networkIssuer, audience: config.oauth.sessionAudience, delegated: { service: 'vision' } });
+                } catch (e) { return { error: [401, (e && e.code) || 'token.invalid', (e && e.detail) || 'the token does not verify'] }; }
+                if (!ids.isSubjectId('user', claims.subject_id)) return { error: [403, 'identity.no_subject', 'this account has no canonical subject yet'] };
+                return { principal: { kind: 'user', subject: claims.subject_id, requester: `user:${claims.subject_id}`, project: null, role: 'user', username: usernameClaim(claims), token, viaSession: false, delegated: claims.delegated } };
+            }
             if (payload && typeof payload.sub === 'string' && PRINCIPAL_SUB.test(payload.sub)) {
                 const publicKey = await keys.pemForToken(token);
                 if (!publicKey) return { error: [503, 'identity.unavailable', 'the Network signing key is not loaded yet'] };

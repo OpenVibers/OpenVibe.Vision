@@ -33,6 +33,17 @@ const rpc = (method, params = {}, id = 1) => ({ jsonrpc: '2.0', id, method, para
             assert.strictEqual(r.json().result.isError, true);
         });
 
+        await check('a delegated person token (SDK 0.187) is the person on /mcp, and only there', async () => {
+            const call = (token) => t.get('/mcp', { bearer: token, json: rpc('tools/call', { name: 'vision.search_my_media', arguments: { query: 'desk' } }) });
+            const asKey = await call(t.network.delegatedToken(owner, { services: ['vision'] }));
+            assert.strictEqual(asKey.status, 200, asKey.text);
+            assert.ok(!/A verified owner user token is required/.test(asKey.text), asKey.text);
+            const forDesign = await call(t.network.delegatedToken(owner, { services: ['design'] }));
+            assert.strictEqual(forDesign.status, 401, 'a token for another service is refused here');
+            const api = await t.get('/api/v1/find?q=desk', { bearer: t.network.delegatedToken(owner, { services: ['vision'] }) });
+            assert.strictEqual(api.status, 401, `the API takes no delegated token: ${api.status} ${api.text.slice(0, 200)}`);
+        });
+
         await check('a service token needs the exact tool capability', async () => {
             const denied = await t.get('/mcp', { bearer: t.network.serviceToken({ cap: ['vision.ui.check'] }), json: rpc('tools/call', { name: 'vision.compare_models', arguments: {} }) });
             assert.strictEqual(denied.status, 200);

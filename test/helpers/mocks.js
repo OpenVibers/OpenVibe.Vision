@@ -57,6 +57,11 @@ async function startNetwork() {
         const now = iat != null ? iat : Math.floor(Date.now() / 1000);
         return signJwt({ iss: issuer, sub: u.id, subject_id: u.subject, username: u.username, display_name: u.display_name, role: u.role, aud: ['openvibe.network'], iat: now, exp: now + ttl }, privatePem);
     }
+    /** A delegated person token (SDK 0.187): what Connect's /mcp/all sends as the person. */
+    function delegatedToken(u, { services = ['vision'], by = 'ck_01JD8C4QJ7Z3K9W2X5V6N1M0PC', scope = 'write', ttlSec = 600 } = {}) {
+        const { delegatedClaims } = require('openvibe-sdk/auth/delegated');
+        return signJwt(delegatedClaims({ user: { id: u.id, subject_id: u.subject, username: u.username, display_name: u.display_name }, by, services, scope, ttlSec, issuer, audience: ['openvibe.network'] }), privatePem);
+    }
     function userFrom(req) {
         const h = String(req.headers.authorization || '');
         if (!h.startsWith('Bearer ')) return null;
@@ -146,7 +151,7 @@ async function startNetwork() {
 
     return {
         url: srv.url, publicPem, privatePem, state: st, requests: st.requests, tokenRequests: st.tokenRequests,
-        addUser, userToken, signJwt: (claims) => signJwt(claims, privatePem), issuer: () => issuer,
+        addUser, userToken, delegatedToken, signJwt: (claims) => signJwt(claims, privatePem), issuer: () => issuer,
         serviceToken({ sub = 'svc:design', cap = ['vision.ui.check'], audience = 'openvibe.vision', ttl = 300 } = {}) {
             const now = Math.floor(Date.now() / 1000);
             return signJwt({ iss: issuer, sub, actor_type: 'service', aud: [audience], cap, iat: now, exp: now + ttl, jti: crypto.randomUUID() }, privatePem);

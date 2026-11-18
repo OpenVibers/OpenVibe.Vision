@@ -155,7 +155,8 @@ function mcpRouter(ctx) {
     r.post('/mcp', rateLimit({ windowMs: 60_000, limit: Number(process.env.VISION_MCP_RATE_LIMIT_PER_MIN) || 60, standardHeaders: true, legacyHeaders: false }), express.json({ limit: `${Math.ceil(ctx.config.images.maxMb * 1.5) + 2}mb`, strict: false }), async (req, res, next) => {
         res.set('Cache-Control', 'no-store');
         try {
-            const resolved = await ctx.principal.resolve(req);
+            // A delegated person token is a person here and only here (2026-11-18, SDK 0.187).
+            const resolved = await ctx.principal.resolve(req, { delegated: true });
             if (resolved.error) { challenge(res); return res.status(resolved.error[0]).json(rpcError(null, -32001, resolved.error[2])); }
             req.principal = resolved.principal;
             if (req.get('mcp-protocol-version') && !VERSIONS.has(req.get('mcp-protocol-version'))) return res.status(400).json(rpcError(null, -32600, 'Unsupported protocol version'));
