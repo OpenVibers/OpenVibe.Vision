@@ -26,6 +26,34 @@ const rpc = (method, params = {}, id = 1) => ({ jsonrpc: '2.0', id, method, para
             assert.ok(!list.json().result.tools.some((x) => /enrol|verify|cast/.test(x.name)));
         });
 
+        await check('MCP 2026-07-28 beside the handshake era: discover, list, call, headers checked (openvibe-sdk/mcp)', async () => {
+            const mcp = require('openvibe-sdk/mcp');
+            // The boot helper sets content-type itself for a json body.
+            const send = (method, params = {}, extra = {}, version) => {
+                const m = mcp.modernRequest({ id: 7, method, params, ...(version ? { version } : {}) });
+                const headers = { ...m.headers, ...extra };
+                delete headers['Content-Type'];
+                return t.get('/mcp', { json: m.body, headers });
+            };
+            const disc = await send('server/discover');
+            assert.strictEqual(disc.status, 200, disc.text);
+            assert.strictEqual(disc.json().result.resultType, 'complete');
+            assert.ok(disc.json().result.supportedVersions.includes('2026-07-28'));
+            const list = (await send('tools/list')).json().result;
+            assert.deepStrictEqual([list.resultType, list.cacheScope, list.tools.length], ['complete', 'public', 17]);
+            const ocr = await send('tools/call', { name: 'vision.search_my_media', arguments: { query: 'desk' } });
+            assert.strictEqual(ocr.status, 401, 'anonymous: the same challenge as before');
+            assert.strictEqual(ocr.json().result.resultType, 'complete');
+            let r = await send('tools/list', {}, { 'Mcp-Method': 'tools/call' });
+            assert.deepStrictEqual([r.status, r.json().error.code], [400, -32020]);
+            r = await send('tools/list', {}, {}, '2027-01-01');
+            assert.strictEqual(r.status, 400);
+            r = await send('prompts/list');
+            assert.deepStrictEqual([r.status, r.json().error.code], [404, -32601]);
+            const init = await t.get('/mcp', { json: rpc('initialize', { protocolVersion: '2026-07-28' }) });
+            assert.strictEqual(init.json().result.protocolVersion, '2025-06-18', 'initialize answers in the handshake era');
+        });
+
         await check('private tools challenge anonymous callers with resource metadata', async () => {
             const r = await t.get('/mcp', { json: rpc('tools/call', { name: 'vision.search_my_media', arguments: { query: 'desk' } }) });
             assert.strictEqual(r.status, 401, r.text);
