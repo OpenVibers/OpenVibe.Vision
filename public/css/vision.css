@@ -442,3 +442,5 @@ html[data-ov-motion=off] .vi-task:hover{transform: none}
 @media (max-width: 760px) {
     .vi-review-noimage { width: 72px; height: 56px; font-size: .62rem; }
 }
+/* Design rule 201: the intro is one line on a computer, at most two on a phone. */
+@media (max-width: 640px) { .vi-lede, .sc-room-lede { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; } }
