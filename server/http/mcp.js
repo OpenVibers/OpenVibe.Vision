@@ -6,8 +6,12 @@ const { loadImage } = require('../vision/images');
 const { check } = require('../vision/ui-check');
 const { sameOrigin } = require('./principal');
 
-const VERSION = '2025-06-18';
-const VERSIONS = new Set([VERSION, '2025-03-26']);
+// Both MCP eras on one endpoint (openvibe-sdk/mcp, as Network, Design, Tools, Compare, Services and Finance serve them):
+// a request naming 2026-07-28 in params._meta is served statelessly (server/discover, resultType, ttlMs and cacheScope,
+// its headers checked against the body); initialize keeps the handshake era.
+const mcp = require('openvibe-sdk/mcp');
+const VERSION = mcp.DEFAULT_LEGACY;
+const VERSIONS = new Set([...mcp.MODERN_VERSIONS, ...mcp.LEGACY_VERSIONS]);
 const input = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
 const image = { image: { type: 'string', description: 'Image data URL' }, image_url: { type: 'string', description: 'Public HTTPS image URL' } };
 const TOOLS = Object.freeze([
@@ -151,7 +155,7 @@ function mcpRouter(ctx) {
     const document = () => ({ resource: `${ctx.config.baseUrl}/mcp`, authorization_servers: [ctx.config.networkUrl], scopes_supported: [...new Set(Object.values(ACCESS).map(([cap]) => cap).filter(Boolean))], bearer_methods_supported: ['header'], resource_documentation: `${ctx.config.baseUrl}/developers` });
     r.get('/.well-known/oauth-protected-resource', (_req, res) => res.json(document()));
     r.get('/.well-known/oauth-protected-resource/mcp', (_req, res) => res.json(document()));
-    r.options('/mcp', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, MCP-Protocol-Version' }).status(204).end());
+    r.options('/mcp', (_req, res) => res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, MCP-Protocol-Version, Mcp-Method, Mcp-Name' }).status(204).end());
     r.post('/mcp', rateLimit({ windowMs: 60_000, limit: Number(process.env.VISION_MCP_RATE_LIMIT_PER_MIN) || 60, standardHeaders: true, legacyHeaders: false }), express.json({ limit: `${Math.ceil(ctx.config.images.maxMb * 1.5) + 2}mb`, strict: false }), async (req, res, next) => {
         res.set('Cache-Control', 'no-store');
         try {
@@ -159,7 +163,11 @@ function mcpRouter(ctx) {
             const resolved = await ctx.principal.resolve(req, { delegated: true });
             if (resolved.error) { challenge(res); return res.status(resolved.error[0]).json(rpcError(null, -32001, resolved.error[2])); }
             req.principal = resolved.principal;
-            if (req.get('mcp-protocol-version') && !VERSIONS.has(req.get('mcp-protocol-version'))) return res.status(400).json(rpcError(null, -32600, 'Unsupported protocol version'));
+            const modern = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? mcp.requestVersion(req.body.params) : null;
+            if (modern) {
+                const bad = mcp.checkRequest({ header: (n) => req.get(n), method: req.body.method, params: req.body.params });
+                if (bad) return res.status(bad.status).json({ jsonrpc: '2.0', id: Object.hasOwn(req.body, 'id') ? req.body.id : null, error: bad.error });
+            } else if (req.get('mcp-protocol-version') && !VERSIONS.has(req.get('mcp-protocol-version'))) return res.status(400).json(rpcError(null, -32600, 'Unsupported protocol version'));
             const batch = Array.isArray(req.body);
             const messages = batch ? req.body : [req.body];
             if (!messages.length) return res.json(rpcError(null, -32600, 'Invalid Request'));
@@ -168,9 +176,10 @@ function mcpRouter(ctx) {
                 if (!msg || typeof msg !== 'object' || Array.isArray(msg) || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string' || (Object.hasOwn(msg, 'id') && !(msg.id === null || typeof msg.id === 'string' || Number.isFinite(msg.id)))) { responses.push(rpcError(null, -32600, 'Invalid Request')); continue; }
                 if (!Object.hasOwn(msg, 'id')) continue;
                 const id = msg.id, params = msg.params && typeof msg.params === 'object' && !Array.isArray(msg.params) ? msg.params : {};
-                if (msg.method === 'initialize') responses.push(rpcResult(id, { protocolVersion: VERSIONS.has(params.protocolVersion) ? params.protocolVersion : VERSION, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'openvibe-vision', version: require('../../package.json').version } }));
+                if (msg.method === 'initialize') responses.push(rpcResult(id, { protocolVersion: mcp.legacyVersion(params.protocolVersion), capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'openvibe-vision', version: require('../../package.json').version } }));
+                else if (msg.method === 'server/discover' && modern) responses.push(rpcResult(id, mcp.discoverResult({ serverInfo: { name: 'openvibe-vision', title: 'OpenVibe Vision', version: require('../../package.json').version }, capabilities: { tools: { listChanged: false } } })));
                 else if (msg.method === 'ping') responses.push(rpcResult(id, {}));
-                else if (msg.method === 'tools/list') responses.push(rpcResult(id, { tools: TOOLS }));
+                else if (msg.method === 'tools/list') responses.push(rpcResult(id, modern ? mcp.listResult('tools', TOOLS, { cacheScope: 'public' }) : { tools: TOOLS }));
                 else if (msg.method === 'tools/call') {
                     const name = params.name;
                     if (!Object.hasOwn(ACCESS, name)) { responses.push(rpcError(id, -32602, 'Unknown tool')); continue; }
@@ -193,6 +202,10 @@ function mcpRouter(ctx) {
                 } else responses.push(rpcError(id, -32601, 'Method not found'));
             }
             if (!responses.length) return res.status(202).end();
+            if (modern) {
+                for (const one of responses) if (one && one.result) one.result = mcp.complete(one.result);
+                if (responses[0] && responses[0].error && responses[0].error.code === -32601) return res.status(404).json(responses[0]);
+            }
             return res.status(res.getHeader('WWW-Authenticate') ? 401 : 200).json(batch ? responses : responses[0]);
         } catch (err) { next(err); }
     });
