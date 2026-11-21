@@ -109,11 +109,11 @@ function createPageRoutes(ctx) {
         });
     });
 
-    r.get('/people', async (req, res) => page(req, res, { title: 'People and consent', body: raw(peopleViews.people({
+    r.get('/people', async (req, res) => page(req, res, { index: true, title: 'People and consent', description: 'Your choices for faces on OpenVibe: self verification, finding yourself, tagging the cast and grouping your private library, each off until you turn it on.', body: raw(peopleViews.people({
         signedIn: Boolean(signedIn(req)), consents: signedIn(req) ? await faces.listConsents(req.viewer.subject) : [],
         texts: faces.TEXT, regions: config.faces.allowedRegions,
     })) }));
-    r.get('/people/privacy', (req, res) => page(req, res, { title: 'Face privacy', body: raw(peopleViews.privacy()) }));
+    r.get('/people/privacy', (req, res) => page(req, res, { index: true, title: 'Face privacy', description: 'How OpenVibe.Vision handles faces: local processing, private links, how long anything is kept, erasure, and the uses that are never allowed.', body: raw(peopleViews.privacy()) }));
     r.post('/people/consent/:feature', async (req, res) => {
         if (!signedIn(req)) return page(req, res, { title: 'Sign in', body: raw(views.signIn({ title: 'People', text: 'Sign in to choose.', next: '/people' })) }, 401);
         if (!sameOrigin(req, config.baseUrl)) return notFromHere(req, res);
@@ -136,8 +136,10 @@ function createPageRoutes(ctx) {
     // ── The three task pages ─────────────────────────────────
     // Each is one input and its result. /read works for anyone (local OCR); /find searches only the signed-in
     // person's own index; /watch is open object detection with no templates and no identity.
+    // Indexable (the sitemap lists them; the owner, 11-21: "Everything should be just crawlable"): a crawler sees the
+    // signed-out page, which says what the tool does.
     const toolMeta = (title, pagePath, description) => ({
-        title, cache: PUBLIC_CACHE, description,
+        index: true, title, cache: PUBLIC_CACHE, description,
         jsonLd: [seo.jsonLd.webPage({ name: title, url: `${base()}${pagePath}`, description, siteUrl: base() })],
     });
 
@@ -263,7 +265,7 @@ function createPageRoutes(ctx) {
 
     // ── OCR ──────────────────────────────────────────────────
     r.get('/ocr', (req, res) => page(req, res, {
-        index: true, cache: PUBLIC_CACHE, title: 'Read text from a picture',
+        index: true, cache: PUBLIC_CACHE, title: 'OCR with an AI fallback',
         description: 'Local Tesseract OCR first: read a receipt, a sign or a screenshot on this host, with no model call.',
         body: raw(views.ocr({ signedIn: Boolean(signedIn(req)), ai: ai.enabled })),
     }));
