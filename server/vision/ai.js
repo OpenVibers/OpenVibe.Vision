@@ -164,7 +164,32 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
         };
     }
 
-    return { enabled, answer, offeredModels, call, tokenClient };
+    /**
+     * The model list for pages and /models, never in a visitor's way (the 11-23 crawl: /compare took 21 s, every visit
+     * waiting for AI's routes to time out). One list for the process, kept 10 minutes; a stale or missing one starts
+     * one refresh in the background and the caller waits at most `maxWaitMs` for it, else gets the last good list (or
+     * none). A failed refresh keeps the last good list and is tried again after a minute.
+     */
+    let listed = { at: 0, offered: [], ok: false };
+    let refreshing = null;
+    function offeredModelsCached({ maxWaitMs = 2000, now = Date.now } = {}) {
+        if (!enabled) return Promise.resolve([]);
+        const fresh = listed.ok ? now() - listed.at < 10 * 60_000 : now() - listed.at < 60_000;
+        if (fresh) return Promise.resolve(listed.offered);
+        if (!refreshing) {
+            refreshing = offeredModels().then((offered) => {
+                const ok = Array.isArray(offered) && offered.length > 0;
+                listed = ok ? { at: now(), offered, ok } : { at: now(), offered: listed.offered, ok: false };
+                return listed.offered;
+            }, () => { listed = { ...listed, at: now(), ok: false }; return listed.offered; })
+                .finally(() => { refreshing = null; });
+        }
+        let timer;
+        const wait = new Promise((resolve) => { timer = setTimeout(() => resolve(listed.offered), Math.max(0, maxWaitMs)); });
+        return Promise.race([refreshing, wait]).finally(() => clearTimeout(timer));
+    }
+
+    return { enabled, answer, offeredModels, offeredModelsCached, call, tokenClient };
 }
 
 module.exports = { createAi, AiError, TASK_PROMPTS, NO_IDENTITY };

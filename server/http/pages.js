@@ -290,7 +290,7 @@ function createPageRoutes(ctx) {
     // ── Compare ──────────────────────────────────────────────
     r.get('/compare', async (req, res) => {
         let models = [];
-        try { models = ai.enabled ? await ai.offeredModels() : []; } catch { models = []; }
+        try { models = ai.enabled ? await ai.offeredModelsCached({ maxWaitMs: 2000 }) : []; } catch { models = []; }
         return page(req, res, {
             index: true, cache: PUBLIC_CACHE, title: 'Compare models side by side',
             description: 'Run the same image through the local OCR reader and through OpenVibe.AI, and compare the answer, cost and latency side by side.',

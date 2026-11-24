@@ -184,7 +184,7 @@ function createVision({ config, s, images, ocr, ai, store, log = console }) {
         if (ai.enabled) {
             let hints = (Array.isArray(models) ? models : []).map((m) => String(m || '').trim()).filter(Boolean).slice(0, maxAiSamples);
             if (!hints.length) {
-                const offered = await ai.offeredModels();
+                const offered = ai.offeredModelsCached ? await ai.offeredModelsCached({ maxWaitMs: 5000 }) : await ai.offeredModels();
                 hints = (offered.length ? offered : [{ provider: 'ai', model: null }])
                     .map((o) => (o.provider && o.provider !== 'ai' ? `${o.provider}:${o.model || ''}` : (o.model || 'openvibe')))
                     .filter(Boolean).slice(0, maxAiSamples);
