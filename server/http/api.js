@@ -364,12 +364,9 @@ function createApi(ctx) {
     });
 
     // ── Model hints and benchmarks (no subject data) ───────
-    let modelCache = null;
     r.get('/models', principal.optional('vision.models.read', { allowAnonymous: true }), async (_req, res) => {
-        if (!modelCache || Date.now() - modelCache.at > 5 * 60_000) {
-            const offered = ai.enabled ? await ai.offeredModels().catch(() => []) : [];
-            modelCache = { at: Date.now(), offered };
-        }
+        // The process's one model list (ai.offeredModelsCached): at most 2 s of waiting, the last good list after that.
+        const modelCache = { offered: ai.enabled ? await ai.offeredModelsCached({ maxWaitMs: 2000 }).catch(() => []) : [] };
         res.set('Cache-Control', 'public, max-age=300');
         return res.json({
             ai: ai.enabled,
