@@ -184,6 +184,10 @@ function createAi({ config, fetchImpl = globalThis.fetch, log = console } = {}) 
             }, () => { listed = { ...listed, at: now(), ok: false }; return listed.offered; })
                 .finally(() => { refreshing = null; });
         }
+        // 11-28: AI's /api/v1/routes takes ~25 s, so every visit in that window waited its whole maxWaitMs (2.1 s for
+        // /compare after each expiry). With a list in hand, it answers now and the refresh lands for the next visit;
+        // only a process with no list yet waits.
+        if (listed.offered.length) return Promise.resolve(listed.offered);
         let timer;
         const wait = new Promise((resolve) => { timer = setTimeout(() => resolve(listed.offered), Math.max(0, maxWaitMs)); });
         return Promise.race([refreshing, wait]).finally(() => clearTimeout(timer));

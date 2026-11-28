@@ -58,5 +58,17 @@ const config = {
     clock += 11 * 60_000;
     down = true;
     assert.strictEqual((await ai2.offeredModelsCached({ maxWaitMs: 1000, now })).length, 2, 'the last good list when AI is down');
+    // 11-28: AI's /api/v1/routes takes ~25 s. With a list in hand, an expired cache answers at once (no maxWaitMs wait)
+    // and the refresh lands behind the visitor.
+    const lagging = fakeFetch({ delayMs: 400 });
+    const ai3 = createAi({ config, fetchImpl: lagging.fetchImpl, log: { warn() {} } });
+    await ai3.offeredModelsCached({ maxWaitMs: 1000, now });           // the first list (a cold start waits)
+    clock += 11 * 60_000;
+    const t1 = Date.now();
+    const stale = await ai3.offeredModelsCached({ maxWaitMs: 1000, now });
+    assert.ok(Date.now() - t1 < 100, `an expired list answers at once (waited ${Date.now() - t1} ms)`);
+    assert.strictEqual(stale.length, 2, 'the last list');
+    await new Promise((r) => setTimeout(r, 60));   // the refresh asks for its token first
+    assert.strictEqual(lagging.calls.routes, 2, 'and one refresh started behind it');
     console.log('models-cache: the model list never keeps a visitor waiting, and a good list outlives a failed refresh');
 })().catch((e) => { console.error(e); process.exit(1); });
