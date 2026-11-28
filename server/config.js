@@ -69,7 +69,7 @@ function load(env = process.env) {
         // routing, quotas, cache, provenance and cost accounting apply. With no client secret AI is off and the
         // local engines alone answer.
         ai: {
-            url: trim(env.OV_AI_URL || env.OV_AI_INTERNAL_URL || 'https://ai.openvibe.services'),
+            url: trim(env.OV_AI_URL || env.OV_AI_INTERNAL_URL || (nodeEnv === 'test' ? 'http://127.0.0.1:9' : 'https://ai.openvibe.services')),   // tests never reach production (11-28)
             audience: env.VISION_AI_AUDIENCE || 'openvibe.ai',
             scope: env.VISION_AI_SCOPE || 'ai.run.create',
             namespace: env.VISION_AI_NAMESPACE || 'ai.*',
