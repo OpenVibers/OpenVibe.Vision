@@ -41,7 +41,7 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .vi-field input:focus, .vi-field select:focus, .vi-field textarea:focus { outline: 2px solid var(--room-accent); outline-offset: 1px; border-color: transparent; }
 .vi-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 20px 0 0; }
 .vi-facts > div { padding: 12px 14px; border-radius: 14px; background: var(--bg-card, #0f1729); border: 1px solid var(--border, #1f2d47); min-width: 0; }
-.vi-facts dt { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
+.vi-facts dt { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
 .vi-facts dd { margin: 4px 0 0; font-weight: 700; overflow-wrap: anywhere; }
 .vi-eps { display: grid; gap: 10px; margin: 12px 0 0; }
 .vi-eps > div { padding: 12px 14px; border-radius: 14px; background: var(--bg-card, #0f1729); border: 1px solid var(--border, #1f2d47); }
@@ -60,12 +60,12 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 /* Scenes' demos */
 .vi-demo-receipt { display: grid; gap: 4px; width: min(100%, 300px); margin: 0 auto; padding: 18px 20px; border-radius: 6px; background: #fbfaf6; color: #222; font: 500 .9rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 12px 30px rgba(0, 0, 0, .25); }
 .vi-demo-receipt strong { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #999; font-size: 1.05rem; }
-.vi-demo-receipt small { color: #6b6b6b; font-size: .74rem; }
+.vi-demo-receipt small { color: #6b6b6b; font-size: .75rem; }
 .vi-demo-kicker { justify-self: start; padding: 2px 8px; border-radius: 6px; font: 800 .68rem/1.4 Inter, sans-serif; letter-spacing: .08em; color: #fff; background: #6b4ab0; }
 .vi-demo-table, .vi-table { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
 .vi-demo-table caption, .vi-table caption { text-align: left; padding-bottom: 8px; color: var(--text-muted, #7386a3); font-size: .8rem; }
 .vi-demo-table th, .vi-demo-table td, .vi-table th, .vi-table td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border, #1f2d47); vertical-align: top; overflow-wrap: anywhere; }
-.vi-demo-table th, .vi-table th { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
+.vi-demo-table th, .vi-table th { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
 .vi-demo-table { background: var(--bg-card, #0f1729); border-radius: 14px; overflow: hidden; border: 1px solid var(--border, #1f2d47); }
 .vi-table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--border, #1f2d47); background: var(--bg-card, #0f1729); }
 .vi-demo-check { display: grid; gap: 10px; }
@@ -318,7 +318,7 @@ html[data-ov-motion=off] .vi-task:hover{transform: none}
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) tr { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border, #1f2d47); border-radius: 14px; background: var(--bg-card, var(--bg-secondary, #101828)); }
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td { display: block; min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td:first-child { font-weight: 700; color: var(--text-primary, #e6edf7); }
-    .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
+    .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
     .table-wrap > table:has(thead th:nth-child(3)):has(td[data-label]) td:empty { display: none; }
 }
 
@@ -384,7 +384,7 @@ html[data-ov-motion=off] .vi-task:hover{transform: none}
 .vi-review-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vi-review-main { min-width: 0; }
 .vi-review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-.vi-review-badge { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.vi-review-badge { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
 .vi-review-badge.is-fine { background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent); color: color-mix(in srgb, var(--success, #22c55e) 70%, var(--text-primary, #e6edf7)); }
 .vi-review-badge.is-sex_acts { background: color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent); color: color-mix(in srgb, var(--warning, #f59e0b) 70%, var(--text-primary, #e6edf7)); }
 .vi-review-badge.is-minor_sexual { background: color-mix(in srgb, var(--error, #ef4444) 18%, transparent); color: color-mix(in srgb, var(--error, #ef4444) 70%, var(--text-primary, #e6edf7)); }
@@ -428,7 +428,7 @@ html[data-ov-motion=off] .vi-task:hover{transform: none}
 
 /* VIS-6 evidence handling: category 2 and 3 pictures stay hidden or blurred until an operator reveals one. */
 .vi-review-thumb.is-blurred { filter: blur(12px); transform: scale(1.04); }
-.vi-review-noimage { display: flex; align-items: center; justify-content: center; width: 96px; height: 72px; padding: 6px; border-radius: 12px; border: 1px dashed var(--border, #1f2d47); background: var(--bg-primary, #0a0f1c); color: var(--text-muted, #7386a3); font-size: .68rem; font-weight: 800; text-align: center; line-height: 1.25; text-transform: uppercase; letter-spacing: .04em; }
+.vi-review-noimage { display: flex; align-items: center; justify-content: center; width: 96px; height: 72px; padding: 6px; border-radius: 12px; border: 1px dashed var(--border, #1f2d47); background: var(--bg-primary, #0a0f1c); color: var(--text-muted, #7386a3); font-size: .75rem; font-weight: 800; text-align: center; line-height: 1.25; text-transform: uppercase; letter-spacing: .04em; }
 .vi-review-evidence.is-blurred { filter: blur(22px); transform: scale(1.03); }
 .vi-review-held { display: flex; align-items: center; justify-content: center; min-height: 260px; padding: 24px; border-radius: 18px; border: 1px dashed color-mix(in srgb, var(--error, #ef4444) 45%, var(--border, #1f2d47)); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--error, #ef4444) 7%, var(--bg-card, #0f1729)) 0 12px, var(--bg-card, #0f1729) 12px 24px); color: var(--text-secondary, #96a7c2); font-weight: 700; text-align: center; }
 .vi-review-evidence-note { display: grid; gap: 8px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 45%, var(--border, #1f2d47)); background: color-mix(in srgb, var(--warning, #f59e0b) 8%, var(--bg-card, #0f1729)); }
@@ -440,7 +440,7 @@ html[data-ov-motion=off] .vi-task:hover{transform: none}
 .vi-review-reveals ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .vi-review-reveals li { font-size: .82rem; line-height: 1.45; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
-    .vi-review-noimage { width: 72px; height: 56px; font-size: .62rem; }
+    .vi-review-noimage { width: 72px; height: 56px; font-size: .75rem; }
 }
 /* Design rule 201: the intro is one line on a computer, at most two on a phone. */
 @media (max-width: 640px) { .vi-lede, .sc-room-lede { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; } }
